@@ -1,0 +1,166 @@
+format-version: 1.2
+default-namespace: germplasm
+
+[Term]
+id: GPlasm:0000001
+name: alias
+def: "Alternative name for the stock."
+
+[Term]
+id: GPlasm:0000002
+name: germplasm_center
+def: "Entity which distributes the germplasm. For example, a stock center."
+
+[Term]
+id: GPlasm:0000003
+name: variety
+def: "Class of stock, for example, 'Spanish' for peanut, 'Pinto' for bean."
+
+[Term]
+id: GPlasm:0000004
+name: cultivar
+def: "Stock of type cultivar (produced by selective breeding)"
+
+[Term]
+id: GPlasm:0000005
+name: obsolete cultivar
+def: "An obsolete cultivar or variety"
+
+[Term]
+id: GPlasm:0000006
+name: breeding_research_material
+def: "Breeding germplasm, which includes elite germplasm, parental lines, breeding marterial)"
+
+[Term]
+id: GPlasm:0000007
+name: genetic_stocks
+def: "For example, mutants, chromosome substitution lines, aneuploids"
+
+[Term]
+id: GPlasm:0000008
+name: wild_unimproved
+def: "Wild-collected stock which is not improved for cultivation."
+
+[Term]
+id: GPlasm:0000009
+name: tbd
+def: "Stock type has not been determined."
+
+[Term]
+id: GPlasm:0000010
+name: landrace
+def: "A domesticated, regional ecotype which is locally adapted."
+
+[Term]
+id: GPlasm:0000011
+name: population
+def: "Represents a population, for example, F1, RIL, NIL, Synthetic, et cetera"
+
+[Term]
+id: GPlasm:0000012
+name: accession
+def: "A specific accession; note that a cultivar can, in theory, have more than one accession."
+
+[Term]
+id: GPlasm:0000013
+name: species
+def: "The scientific name."
+
+[Term]
+id: GPlasm:0000014
+name: cross_number
+def: ""
+
+[Term]
+id: GPlasm:0000015
+name: is_a_maternal_parent_of
+def: "Relationship: subject is a maternal parent of object."
+
+[Term]
+id: GPlasm:0000016
+name: is_a_paternal_parent_of
+def: "Relationship: subject is a paternal parent of object."
+
+[Term]
+id: GPlasm:0000017
+name: is_a_mutation_parent_of
+def: "Relationship: subject is a mutation parent of object."
+
+[Term]
+id: GPlasm:0000018
+name: is_a_selfing_parent_of
+def: "Relationship: subject is a selfing parent of object."
+
+[Term]
+id: GPlasm:0000019
+name: maternal_parent
+def: "Name of maternal parent."
+
+[Term]
+id: GPlasm:0000020
+name: paternal_parent
+def: "Name of paternal parent."
+
+[Term]
+id: GPlasm:0000021
+name: mutation_parent
+def: "Name of mutation parent."
+
+[Term]
+id: GPlasm:0000022
+name: selfing_parent
+def: "Name of selfing parent."
+
+[Term]
+id: GPlasm:0000023
+name: pedigree
+def: "Pedigree information."
+
+[Term]
+id: GPlasm:0000024
+name: description
+name: Stock description."
+
+[Term]
+id: GPlasm:0000025
+name: origin
+def: "Stock origin."
+
+[Term]
+id: GPlasm:0000026
+name: comments
+def: "Stock comments."
+
+[Term]
+id: GPlasm:0000027
+name: population_size
+def: "Size of the population."
+
+[Term]
+id: GPlasm:0000028
+name: subspecies
+def: "Subspecies"
+
+[Term]
+id: GPlasm:0000029
+name: file_name
+def: "Full path or URL of a file"
+
+[Term]
+id: GPlasm:0000030
+name: legend
+def: "Label or description of a file (typically, an image)"
+
+[Term]
+id: GPlasm:0000031
+name: photo_provider
+def: "Person to contact regarding an image."
+
+[Term]
+id: GPlasm:0000032
+name: grin_accession
+def: "The GRIN accession (not the internal GRIN id)."
+
+
+		
+		
