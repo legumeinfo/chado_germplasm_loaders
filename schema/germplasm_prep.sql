@@ -36,6 +36,8 @@ VALUES
   );
 
 
+
+-- NOTE: 'accession' may have been created by metadata loader
 INSERT INTO dbxref
   (db_id, accession, description)
 VALUES
@@ -58,8 +60,10 @@ VALUES
   ((SELECT db_id FROM db WHERE name='GRIN_descriptors'),
    'has_method',
    'Trait descriptor (subject) has method trait observation method (object).'
-  );
-  
+  )
+;
+
+
 INSERT INTO cv
   (name, definition)
 VALUES
@@ -73,6 +77,7 @@ VALUES
    'US National Germplasm Plant System trait observation methods'
   );
   
+-- NOTE: 'Accession' may have been created by metadata loader
 INSERT INTO cvterm
   (cv_id, name, definition, dbxref_id)
 VALUES
@@ -95,7 +100,8 @@ VALUES
    'value_type',
    'Indicates the type of value a GRIN descriptor may have.',
    (SELECT dbxref_id FROM dbxref WHERE accession='value_type')
-  );
+  )
+;
 
 
 -- Need some more organisms
@@ -104,7 +110,7 @@ INSERT INTO organism
 VALUES
   ('araap', 'Arachis', 'appressipila', 'Arachis appressipila'),
   ('araar', 'Arachis', 'archeri', 'Arachis archeri'),
-  ('araba', 'Arachis', 'batizogaea', 'Arachis batizogaea'),
+  ('arabz', 'Arachis', 'batizogaea', 'Arachis batizogaea'),
   ('arabe', 'Arachis', 'benensis', 'Arachis benensis'),
   ('arabn', 'Arachis', 'benthamii', 'Arachis benthamii'),
   ('arabr', 'Arachis', 'burchellii', 'Arachis burchellii'),
@@ -116,9 +122,9 @@ VALUES
   ('arada', 'Arachis', 'dardanoi', 'Arachis dardanoi'),
   ('arade', 'Arachis', 'decora', 'Arachis decora'),
   ('arado', 'Arachis', 'douradiana', 'Arachis douradiana'),
-  ('aragl', 'Arachis', 'glabrata', 'Arachis glabrata'),
+  ('aragf', 'Arachis', 'glabrata', 'Arachis glabrata'),
   ('aragi', 'Arachis', 'giacomettii', 'Arachis giacomettii'),
-  ('aragi', 'Arachis', 'glandulifera', 'Arachis glandulifera'),
+  ('aragl', 'Arachis', 'glandulifera', 'Arachis glandulifera'),
   ('aragr', 'Arachis', 'gracilis', 'Arachis gracilis'),
   ('aragg', 'Arachis', 'gregoryi', 'Arachis gregoryi'),
   ('araqu', 'Arachis', 'guaranitica', 'Arachis guaranitica'),
@@ -136,7 +142,7 @@ VALUES
   ('arali', 'Arachis', 'lignosa', 'Arachis lignosa'),
   ('araln', 'Arachis', 'linearifolia', 'Arachis linearifolia'),
   ('aralu', 'Arachis', 'lutescens', 'Arachis lutescens'),
-  ('arama', 'Arachis', 'macedoi', 'Arachis macedoi'),
+  ('aramc', 'Arachis', 'macedoi', 'Arachis macedoi'),
   ('aramj', 'Arachis', 'major', 'Arachis major'),
   ('aramr', 'Arachis', 'marginata', 'Arachis marginata'),
   ('aramm', 'Arachis', 'martii', 'Arachis martii'),
@@ -145,9 +151,9 @@ VALUES
   ('arani', 'Arachis', 'nitida', 'Arachis nitida'),
   ('araot', 'Arachis', 'oteroi', 'Arachis oteroi'),
   ('arapa', 'Arachis', 'palustris', 'Arachis palustris'),
-  ('arapr', 'Arachis', 'paraguariensis', 'Arachis paraguariensis'),
+  ('arapg', 'Arachis', 'paraguariensis', 'Arachis paraguariensis'),
   ('arapf', 'Arachis', 'pflugeae', 'Arachis pflugeae'),
-  ('arapi', 'Arachis', 'pietrarellii', 'Arachis pietrarellii'),
+  ('arapl', 'Arachis', 'pietrarellii', 'Arachis pietrarellii'),
   ('arapi', 'Arachis', 'pintoi', 'Arachis pintoi'),
   ('arapo', 'Arachis', 'porphyrocalyx', 'Arachis porphyrocalyx'),
   ('arape', 'Arachis', 'praecox', 'Arachis praecox'),
@@ -159,7 +165,7 @@ VALUES
   ('arari', 'Arachis', 'rigonii', 'Arachis rigonii'),
   ('arasc', 'Arachis', 'schininii', 'Arachis schininii'),
   ('arase', 'Arachis', 'seridoensis', 'Arachis seridoensis'),
-  ('arast', 'Arachis', 'setinervosa', 'Arachis setinervosa'),
+  ('arasv', 'Arachis', 'setinervosa', 'Arachis setinervosa'),
   ('arasi', 'Arachis', 'simpsonii', 'Arachis simpsonii'),
   ('arasn', 'Arachis', 'stenophylla', 'Arachis stenophylla'),
   ('arasu', 'Arachis', 'subcoriacea', 'Arachis subcoriacea'),
@@ -170,7 +176,7 @@ VALUES
   ('arava', 'Arachis', 'valida', 'Arachis valida'),
   ('aravl', 'Arachis', 'vallsii', 'Arachis vallsii'),
   ('aravi', 'Arachis', 'villosa', 'Arachis villosa'),
-  ('aravl', 'Arachis', 'villosulicarpa', 'Arachis villosulicarpa'),
+  ('aravs', 'Arachis', 'villosulicarpa', 'Arachis villosulicarpa'),
   ('arawi', 'Arachis', 'williamsii', 'Arachis williamsii')
 ;
 
@@ -178,31 +184,6 @@ VALUES
 -- Get rid of unused organism records
 DELETE FROM organism
 WHERE common_name in ('mouse-ear cress', 'rice');
-
-
---Check loading:
-SELECT name, value_type, value, value_description
-  FROM (
-  SELECT t.name, dx.accession, cp.value AS long_form, t.definition, 
-         vt.value AS value_type, v.name as value, v.definition as value_description
-  FROM cvterm t
-    INNER JOIN dbxref dx ON dx.dbxref_id=t.dbxref_id
-    LEFT JOIN cvtermprop vt ON vt.cvterm_id=t.cvterm_id
-      AND vt.type_id=(SELECT cvterm_id FROM cvterm WHERE name='value_type')
-    LEFT JOIN cvtermprop cp ON cp.cvterm_id=t.cvterm_id
-      AND cp.type_id=(SELECT cvterm_id FROM cvterm WHERE name='GRIN_longform_descriptor')
-    LEFT JOIN cvterm_relationship cr ON cr.subject_id=t.cvterm_id
-    LEFT JOIN cvterm v ON v.cvterm_id=cr.object_id
-  WHERE t.cv_id = (SELECT cv_id FROM cv WHERE name='GRIN_descriptors')
-  ORDER BY name, value
-) sub;
-
-
-SELECT t.name, dx.accession, t.definition
-FROM cvterm t
-  INNER JOIN dbxref dx ON dx.dbxref_id=t.dbxref_id
-WHERE t.cv_id = (SELECT cv_id FROM cv WHERE name='GRIN_methods')
-ORDER BY name;
 
 
 -- Get rid of unused stock records
@@ -313,8 +294,6 @@ WHERE uniquename = 'TT_VG9514_x_TAG24_a';
 
 
 
-
-
 -- If needed:
 UPDATE stock
   SET name='(A. batizocoi K9484_x_(A. cardenasii GKP10017_x_ A. diogoi GKP10602))4x'
@@ -387,5 +366,32 @@ WHERE uniquename = 'ICGS76_x_CSMG84.1_a';
 UPDATE stock
   SET name='Florunner'
 WHERE uniquename = 'Florunner';
+
+
+
+--Check loading:
+SELECT name, value_type, value, value_description
+  FROM (
+  SELECT t.name, dx.accession, cp.value AS long_form, t.definition, 
+         vt.value AS value_type, v.name as value, v.definition as value_description
+  FROM cvterm t
+    INNER JOIN dbxref dx ON dx.dbxref_id=t.dbxref_id
+    LEFT JOIN cvtermprop vt ON vt.cvterm_id=t.cvterm_id
+      AND vt.type_id=(SELECT cvterm_id FROM cvterm WHERE name='value_type')
+    LEFT JOIN cvtermprop cp ON cp.cvterm_id=t.cvterm_id
+      AND cp.type_id=(SELECT cvterm_id FROM cvterm WHERE name='GRIN_longform_descriptor')
+    LEFT JOIN cvterm_relationship cr ON cr.subject_id=t.cvterm_id
+    LEFT JOIN cvterm v ON v.cvterm_id=cr.object_id
+  WHERE t.cv_id = (SELECT cv_id FROM cv WHERE name='GRIN_descriptors')
+  ORDER BY name, value
+) sub;
+
+
+SELECT t.name, dx.accession, t.definition
+FROM cvterm t
+  INNER JOIN dbxref dx ON dx.dbxref_id=t.dbxref_id
+WHERE t.cv_id = (SELECT cv_id FROM cv WHERE name='GRIN_methods')
+ORDER BY name;
+
 
 

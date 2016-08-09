@@ -44,7 +44,7 @@ print "Connect to db: $dbh\n";
   
   eval {
     loadGermplasm();
-#    loadImages();
+    loadImages();
     loadTraits();
     
     # commit if we get this far
@@ -116,6 +116,7 @@ sub loadImages {
     my $stock_id = getStockId($dbh, $rows[$row]{'ID'});
     if (!$stock_id) {
       print "Warning: unable to find stock record for '" . $rows[$row]{'ID'} . "'\n";
+      return;
     }
     
     # Find/create eimage record
@@ -193,7 +194,7 @@ sub attachStockImage {
       VALUES
         ($stock_id, $image_id)
       RETURNING stock_eimage_id";
-    $row = doQuery($dbh, $dbh, $sql, 1);
+    $row = doQuery($dbh, $sql, 1);
     return $row->{'stock_eimage_id'};
   }
 }#attachStockImage
@@ -269,7 +270,7 @@ sub setStockRecord {
 
   # Get germplasm type id
   my $germplasm_type = $data_row{'germplasm_type'};
-  my $type_id = getCvtermId($dbh, $germplasm_type, 'germplasm');
+  my $type_id = getCvtermId($dbh, $germplasm_type, 'stock_type');
 print "Got type_id: $type_id\n";
   if (!$type_id) {
     print "WARNING: no stock-type '$germplasm_type'\n";

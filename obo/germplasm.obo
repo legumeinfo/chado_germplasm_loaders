@@ -13,53 +13,53 @@ def: "Entity which distributes the germplasm. For example, a stock center."
 
 [Term]
 id: GPlasm:0000003
+name: specific_stock_type
+def: "A more specific categorization of stock type."
+
+[Term]
+id: GPlasm:0000004
 name: variety
 def: "Class of stock, for example, 'Spanish' for peanut, 'Pinto' for bean."
 
 [Term]
-id: GPlasm:0000004
+id: GPlasm:0000005
 name: cultivar
 def: "Stock of type cultivar (produced by selective breeding)"
 
 [Term]
-id: GPlasm:0000005
+id: GPlasm:0000006
 name: obsolete cultivar
 def: "An obsolete cultivar or variety"
 
 [Term]
-id: GPlasm:0000006
+id: GPlasm:0000007
 name: breeding_research_material
 def: "Breeding germplasm, which includes elite germplasm, parental lines, breeding marterial)"
 
 [Term]
-id: GPlasm:0000007
+id: GPlasm:0000008
 name: genetic_stocks
 def: "For example, mutants, chromosome substitution lines, aneuploids"
 
 [Term]
-id: GPlasm:0000008
+id: GPlasm:0000009
 name: wild_unimproved
 def: "Wild-collected stock which is not improved for cultivation."
 
 [Term]
-id: GPlasm:0000009
+id: GPlasm:0000010
 name: tbd
 def: "Stock type has not been determined."
 
 [Term]
-id: GPlasm:0000010
+id: GPlasm:0000011
 name: landrace
 def: "A domesticated, regional ecotype which is locally adapted."
 
 [Term]
-id: GPlasm:0000011
+id: GPlasm:0000012
 name: population
 def: "Represents a population, for example, F1, RIL, NIL, Synthetic, et cetera"
-
-[Term]
-id: GPlasm:0000012
-name: accession
-def: "A specific accession; note that a cultivar can, in theory, have more than one accession."
 
 [Term]
 id: GPlasm:0000013
