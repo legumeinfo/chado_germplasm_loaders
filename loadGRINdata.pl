@@ -172,14 +172,14 @@ sub setPhenotypeCValueRecord {
     $phenotype_id = $row->{'phenotype_id'};
     $sql = "
       UPDATE phenotype
-        SET name=$name, cvalue=$cvterm_id
+        SET name=$name, cvalue_id=$cvterm_id
       WHERE phenotype_id=$phenotype_id";
     doQuery($dbh, $sql, 0);
   }
   else {
     $sql = "
       INSERT INTO phenotype
-        (uniquename, name, cvalue)
+        (uniquename, name, cvalue_id)
       VALUES
         ($uniquename, $name, $cvterm_id)
       RETURNING phenotype_id";
