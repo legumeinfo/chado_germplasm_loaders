@@ -42,8 +42,8 @@ die $warn if ($#ARGV < 0);
   }
   
   eval {
-#    loadDescriptors();
-#    loadCodes();
+    loadDescriptors();
+    loadCodes();
     loadMethods();
     
     # commit if we get this far
