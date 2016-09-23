@@ -33,6 +33,11 @@ VALUES
    'US National Germplasm Plant System trait observation methods',
    'https://npgsweb.ars-grin.gov/gringlobal/method.aspx?id=',
    'http://www.ars-grin.gov/npgs/index.html'
+  ),
+  ('GRIN_countries',
+   'US National Germplasm Plant System trait country codes',
+   '',
+   'http://www.ars-grin.gov/npgs/index.html'
   );
 
 
@@ -75,6 +80,9 @@ VALUES
   ),
   ('GRIN_methods',
    'US National Germplasm Plant System trait observation methods'
+  ),
+  ('GRIN_countries',
+   'US National Germplasm Plant System country codes'
   );
   
 -- NOTE: 'Accession' may have been created by metadata loader
