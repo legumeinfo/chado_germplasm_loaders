@@ -161,6 +161,10 @@ id: GPlasm:0000032
 name: grin_accession
 def: "The GRIN accession (not the internal GRIN id)."
 
+[Term]
+id: GPlasm:0000033
+name: crop
+def: "A specific crop or market type within a species."
 
 		
 		
