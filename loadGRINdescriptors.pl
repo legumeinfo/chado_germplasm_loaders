@@ -45,6 +45,7 @@ die $warn if ($#ARGV < 0);
     loadDescriptors();
     loadCodes();
     loadMethods();
+    loadCountries();
     
     # commit if we get this far
     $dbh->commit;
@@ -206,7 +207,7 @@ print "Header:\n" . Dumper($header_ref);
 
   my $db_id = getDBId('GRIN_methods', 1);
   if (!$db_id) {
-    print "ERROR: unable to find db for GRIN medthods.\n";
+    print "ERROR: unable to find db for GRIN methods.\n";
     exit;
   }
 
@@ -239,6 +240,47 @@ print "Header:\n" . Dumper($header_ref);
 #last;
   }
 }#loadMethods
+
+
+sub loadCountries {
+  my ($header_ref, $row_ref) = readWorksheet($oBook, 'country_codes', $dbh);
+print "Header:\n" . Dumper($header_ref);
+
+  my $db_id = getDBId('GRIN_countries', 1);
+  if (!$db_id) {
+    print "ERROR: unable to find db for GRIN countries.\n";
+    exit;
+  }
+
+  my $cv_id = getCVId('GRIN_countries', 1);
+  if (!$cv_id) {
+    print "ERROR: unable to find cv for GRIN countries.\n";
+    exit;
+  }
+  
+  my $row_count = 0;
+  my @rows = @$row_ref;
+  for (my $row=0; $row<=$#rows; $row++) {
+    $row_count++;
+    
+    # Create dbxref with GRIN id
+    my $dbxref_id = setDbxrefRecord(
+      $dbh, 
+      $rows[$row]{'GRIN_identifier'}, 
+      'GRIN_countries'
+    );
+    
+    # Create cvterm with GRIN name
+    my $cvterm_id = setCvtermRecord(
+      $dbh, 
+      $dbxref_id, 
+      $rows[$row]{'code'}, 
+      $rows[$row]{'country_name'}, 
+      'GRIN_countries'
+    );
+#last;
+  }
+}#loadCountries
 
 
 ###############################################################################
