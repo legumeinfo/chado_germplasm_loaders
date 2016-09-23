@@ -73,7 +73,7 @@ sub loadGermplasm {
   my @rows = @$row_ref;
   for (my $row=0; $row<=$#rows; $row++) {
     $row_count++;
-print "Row:\n" . Dumper($rows[$row]);
+#print "Row:\n" . Dumper($rows[$row]);
     
     # Find or create a stock record
     # ID, 2nd_ID, genus, species, subspecies, description, germplasm_type, GRIN_ID
@@ -82,23 +82,32 @@ print "Row:\n" . Dumper($rows[$row]);
       print "ERROR: failed to find or create stock record for '" . $rows[$row]{'ID'} . "'\n";
       exit;
     }
-print "Got stock record $stock_id for '" . $rows[$row]{'ID'} . "'\n";
+#print "Got stock record $stock_id for '" . $rows[$row]{'ID'} . "'\n";
 
     # GRIN accession
     if ($rows[$row]{'grin_accession'}) {
-      setStockProp($dbh, $rows[$row]{'grin_accession'}, $stock_id, 'grin_accession', 'germplasm');
+      setStockProp($dbh, $rows[$row]{'grin_accession'}, $stock_id, 'grin_accession', 1, 'germplasm');
     }
     
     # origin
     if ($rows[$row]{'origin'}) {
-      setStockProp($dbh, $rows[$row]{'origin'}, $stock_id, 'origin', 'germplasm');
+      setStockProp($dbh, $rows[$row]{'origin'}, $stock_id, 'origin', 1, 'germplasm');
+    }
+    
+    # crop/market type
+    if ($rows[$row]{'crop'}) {
+      setStockProp($dbh, $rows[$row]{'crop'}, $stock_id, 'crop', 1, 'germplasm');
+    }
+
+    # alias
+    if ($rows[$row]{'alias'}) {
+      loadSynonyms($dbh, $rows[$row]{'alias'}, $rows[$row]{'ID'}, $stock_id);
     }
     
 # TODO:
-# alias	cultivar, germplasm_center, contact	maternal parent	paternal parent	selfing_parent	mutation_parent	pedigree	population_size	origin	comments
+#	cultivar, germplasm_center, contact	maternal parent	paternal parent	selfing_parent	mutation_parent	pedigree	population_size	comments
 
-#last if ($row_count > 1); 
-    $row_count++;   
+#last if ($row_count > 2000);
   }#each row
   
   print "  loaded $row_count rows.\n";
@@ -134,36 +143,66 @@ sub loadImages {
     }
     
     $row_count++;   
-#last;
+last;
   }
   
   print "  loaded $row_count rows.\n";
 }#loadImages
 
 
+sub loadSynonyms {
+  my ($dbh, $alias, $stock_name, $stock_id) = @_;
+  my ($sql, $sth, $row);
+  
+  # Get all existing synonyms for this stock
+  my %loaded_synonyms;
+  $sql = "
+    SELECT value, rank FROM stockprop
+    WHERE stock_id=$stock_id 
+          AND type_id = (SELECT cvterm_id FROM cvterm 
+                         WHERE name='alias' 
+                               AND cv_id=(SELECT cv_id from cv 
+                                          WHERE name='germplasm'))";
+   $sth = doQuery($dbh, $sql, 0);
+   while ($row=$sth->fetchrow_hashref) {
+     $loaded_synonyms{$row->{'value'}} = $row->{'rank'};
+   }
+   my $rank = (scalar keys %loaded_synonyms > 0) ? (scalar keys %loaded_synonyms)+1 : 1;
+
+  my @synonyms = split ';', $alias;
+  foreach my $synonym (@synonyms) {
+    if (!$loaded_synonyms{$synonym} && $synonym ne $stock_name) {
+      setStockProp($dbh, $synonym, $stock_id, 'alias', $rank, 'germplasm');
+      $loaded_synonyms{$synonym} = $rank;
+      $rank++;
+    }
+  }
+}#loadSynonyms
+
+
 sub loadTraits {
   my ($header_ref, $row_ref) = readWorksheet($oBook, 'Traits', $dbh);
-print "Header:\n" . Dumper($header_ref);
+#print "Header:\n" . Dumper($header_ref);
   
 
   my $row_count = 0;
   my @rows = @$row_ref;
   for (my $row=0; $row<=$#rows; $row++) {
     $row_count++;
-print "Row:\n" . Dumper($rows[$row]);
+#print "Row:\n" . Dumper($rows[$row]);
     
     my $stock_id = getStockId($dbh, $rows[$row]{'ID'});
-print "Got stock id: $stock_id\n";
+    print "Got stock id: $stock_id\n";
     if (!$stock_id) {
       print "ERROR: Unable to find stock record for " . $rows[$row]{'ID'} . "\n";
       next;
     }
     
 #TODO: deal with both name and OBO accession
-    my $type_id = getCvtermId($dbh, $rows[$row]{'trait_name'}, $rows[$row]{'ontology'});
-print "Got cvterm_id $type_id for '" . $rows[$row]{'trait_name'} . "'\n";
+#    my $type_id = getCvtermId($dbh, $rows[$row]{'trait_name'}, $rows[$row]{'ontology'});
+#print "Got cvterm_id $type_id for '" . $rows[$row]{'trait_name'} . "'\n";
 
-    setStockProp($dbh, $rows[$row]{'value'}, $stock_id, $rows[$row]{'trait_name'}, $rows[$row]{'ontology'});
+    setStockProp($dbh, $rows[$row]{'value'}, $stock_id, $rows[$row]{'trait_name'}, 1, $rows[$row]{'ontology'});
     
 #last if ($row_count > 1); 
     $row_count++;   
@@ -271,7 +310,7 @@ sub setStockRecord {
   # Get germplasm type id
   my $germplasm_type = $data_row{'germplasm_type'};
   my $type_id = getCvtermId($dbh, $germplasm_type, 'stock_type');
-print "Got type_id: $type_id\n";
+#print "Got type_id: $type_id\n";
   if (!$type_id) {
     print "WARNING: no stock-type '$germplasm_type'\n";
     return;
@@ -280,7 +319,7 @@ print "Got type_id: $type_id\n";
   
   # Get/create dbxref for GRIN identifier
   my $dbxref_id = setDbxrefRecord($dbh, $data_row{'GRIN_ID'}, 'GRIN');
-print "Got dbxref_id: $dbxref_id\n";
+#print "Got dbxref_id: $dbxref_id\n";
   if (!$dbxref_id) {
     $dbxref_id = 'NULL';
   }
