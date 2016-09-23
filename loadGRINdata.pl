@@ -1,9 +1,9 @@
 # file: loadGRINdata.pl
 #
-# purpose: load GRIN data into chado.
+# purpose: load GRIN trait data into chado.
 #
 # history:
-#  06/22/16  eksc  created
+#  09/21/16  eksc  completed for GRIN
 
 use strict;
 use DBI;
@@ -71,25 +71,43 @@ print "Header:\n" . Dumper($header_ref);
   #    inventory_number, taxon
   # already loaded: origin
   # unknown use: inventory_suffix
+  #
+  # These columns matter:
+  #  observation_value, descriptor_name, method_name, original_value, frequency,
+  #  accession_comment, accenumb
   
   my $row_count = 0;
   my @rows = @$row_ref;
   for (my $row=0; $row<=$#rows; $row++) {
     $row_count++;
+print "row: $row_count\n" . Dumper($rows[$row]);
 
+    # stock - stock_phenotype - phenotype
     # Create a phenotype record for this trait
-START HERE
-    my $traitvalue = $rows[$row]{'descriptor_name'} . '=' . $rows[$row]{'observation_value'};
+    my $accession = $rows[$row]{'accession_prefix'} . ' ' . $rows[$row]{'accession_number'};
     my $phenotype_id = setPhenotype(
       $dbh,
-      $rows[$row]{'accenumb'}, 
+      $accession, 
       $rows[$row]{'descriptor_name'}, 
       $rows[$row]{'method_name'}, 
-      $traitvalue
+      $rows[$row]{'observation_value'}
     );
-#last;
+ 
+    if (!$phenotype_id) {
+      print "ERROR: Failed to insert phenotype " . $rows[$row]{'descriptor_name'}. " for $accession\n";
+      exit;
+    }
+    
+    # Attach to stock
+    my $stock_id = getStockId($dbh, $accession);
+    if (!$stock_id) {
+      print "ERROR: Unable to find stock record for $accession\n";
+      exit;
+    }
+    
+    attachToStock($dbh, $phenotype_id, $stock_id); 
+#last if ($row > 5);
   }
-#   accession_comment 
 
 }#loadGrinEvaluationData
 
@@ -98,132 +116,22 @@ START HERE
 ####                         HELPER FUNCTIONS                              ####
 ###############################################################################
 
-sub setPhenotype {
-  my ($dbh, $stockname, $descriptor, $traitmethod, $traitvalue) = @_;
+sub attachToStock {
+  my ($dbh, $phenotype_id, $stock_id) = @_;
   my ($sql, $row);
   
-  # create a uniquename
-  my $uniquename = "$stockname:$traitmethod:$traitvalue";
-  
-  # name is just the descriptor
-  my $name = $descriptor;
-  
-  my $value_type = getDescriptorValueType($dbh, $descriptor);
-  my $phenotype_id = 0;
-  if ($value_type eq 'literal') {
-print "$descriptor' value type is a literal\n";
-    $phenotype_id = setPhenotypeValueRecord(
-      $dbh, 
-      $uniquename, 
-      $name, 
-      $descriptor, 
-      $traitmethod, 
-      $traitvalue
-    );
-  }
-  elsif ($value_type eq 'code') {
-print "'$descriptor' value type is a controlled vocabulary\n";
-    $phenotype_id = setPhenotypeCValueRecord(
-      $dbh, 
-      $uniquename, 
-      $name, 
-      $descriptor, 
-      $traitmethod, 
-      $traitvalue
-    );
-exit;
-  }
-  else {
-    print "Warning: unknown value type: '$value_type'\n";
-  }
-print "Got phenotype id $phenotype_id\n";
-#  uniquename TEXT NOT NULL,
-#    name TEXT default null,
-#    observable_id INT,
-#      FOREIGN KEY (observable_id) REFERENCES cvterm (cvterm_id) ON DELETE CASCADE,
-#    attr_id INT,
-#      FOREIGN KEY (attr_id) REFERENCES cvterm (cvterm_id) ON DELETE SET NULL,
-#    value TEXT,
-#    cvalue_id INT,
-#      FOREIGN KEY (cvalue_id) REFERENCES cvterm (cvterm_id) ON DELETE SET NULL,
-#    assay_id
-}#setPhenotype
-
-
-sub setPhenotypeCValueRecord {
-  my ($dbh, $uniquename, $name, $descriptor, $traitmethod, $traitvalue) = @_;
-  my ($sql, $row);
-  
-  my $cvterm_id = getCvtermId($dbh, $traitvalue, 'GRIN_descriptor_values');
-  if (!$cvterm_id) {
-    print "Warning: unable to find descriptor value: $traitvalue\n";
-    return;
-  }
-  
-  $uniquename = $dbh->quote($uniquename);
-  $name = $dbh->quote($name);
-  $traitvalue = $dbh->quote($traitvalue);
-  
-  my $phenotype_id = 0;
   $sql = "
-    SELECT phenotype_id FROM phenotype
-    WHERE uniquename=$uniquename";
-  if ($row=doQuery($dbh, $sql, 1)) {
-    $phenotype_id = $row->{'phenotype_id'};
+    SELECT stock_phenotype_id FROM stock_phenotype
+    WHERE phenotype_id=$phenotype_id AND stock_id=$stock_id";
+  if (!($row = doQuery($dbh, $sql, 1))) {
     $sql = "
-      UPDATE phenotype
-        SET name=$name, cvalue_id=$cvterm_id
-      WHERE phenotype_id=$phenotype_id";
+      INSERT INTO stock_phenotype
+        (phenotype_id, stock_id)
+      VALUES
+        ($phenotype_id, $stock_id)";
     doQuery($dbh, $sql, 0);
   }
-  else {
-    $sql = "
-      INSERT INTO phenotype
-        (uniquename, name, cvalue_id)
-      VALUES
-        ($uniquename, $name, $cvterm_id)
-      RETURNING phenotype_id";
-    $row = doQuery($dbh, $sql, 1);
-    $phenotype_id = $row->{'phenotype_id'};
-  }
-  
-  return $phenotype_id;
-}#setPhenotypeCValueRecord
-
-
-sub setPhenotypeValueRecord {
-  my ($dbh, $uniquename, $name, $descriptor, $traitmethod, $traitvalue) = @_;
-  my ($sql, $row);
-  
-  $uniquename = $dbh->quote($uniquename);
-  $name = $dbh->quote($name);
-  $traitvalue = $dbh->quote($traitvalue);
-  
-  my $phenotype_id = 0;
-  $sql = "
-    SELECT phenotype_id FROM phenotype
-    WHERE uniquename=$uniquename";
-  if ($row=doQuery($dbh, $sql, 1)) {
-    $phenotype_id = $row->{'phenotype_id'};
-    $sql = "
-      UPDATE phenotype
-        SET name=$name, value=$traitvalue
-      WHERE phenotype_id=$phenotype_id";
-    doQuery($dbh, $sql, 0);
-  }
-  else {
-    $sql = "
-      INSERT INTO phenotype
-        (uniquename, name, value)
-      VALUES
-        ($uniquename, $name, $traitvalue)
-      RETURNING phenotype_id";
-    $row = doQuery($dbh, $sql, 1);
-    $phenotype_id = $row->{'phenotype_id'};
-  }
-  
-  return $phenotype_id;
-}#setPhenotypeValueRecord
+}#attachToStock
 
 
 sub getDescriptorValueType {
@@ -246,5 +154,144 @@ sub getDescriptorValueType {
   
   return 0;
 }#getDescriptorValueType
+
+
+sub setPhenotype {
+  my ($dbh, $stockname, $descriptor, $traitmethod, $traitvalue) = @_;
+  my ($sql, $row);
+  
+  # create a uniquename
+  my $uniquename = "$stockname:$descriptor:$traitmethod:$traitvalue";
+  
+  # name is just the descriptor
+  my $name = $descriptor;
+  
+  my $descriptor_id = getCvtermId($dbh, $descriptor, 'GRIN_descriptors');
+  if (!$descriptor_id) {
+    print "ERROR: no term found for GRIN descriptor $descriptor\n";
+    exit;
+  }
+  
+  my $traitmethod_id = getCvtermId($dbh, $traitmethod, 'GRIN_methods');
+  if (!$descriptor_id) {
+    print "ERROR: no term found for GRIN method $traitmethod\n";
+    exit;
+  }
+
+  my $value_type = getDescriptorValueType($dbh, $descriptor);
+  my $phenotype_id = 0;
+
+  if ($value_type eq 'literal') {
+print "$descriptor' value type is a literal\n";
+    $phenotype_id = setPhenotypeValueRecord(
+      $dbh, 
+      $uniquename, 
+      $name, 
+      $descriptor_id, 
+      $traitmethod_id, 
+      $traitvalue
+    );
+  }
+  elsif ($value_type eq 'code') {
+print "'$descriptor' value type is a controlled vocabulary\n";
+    $phenotype_id = setPhenotypeCValueRecord(
+      $dbh, 
+      $uniquename, 
+      $name, 
+      $descriptor_id, 
+      $traitmethod_id, 
+      "$descriptor=$traitvalue"
+    );
+  }
+  else {
+    print "Warning: unknown value type: '$value_type'\n";
+  }
+print "Got phenotype id $phenotype_id\n";
+
+  return $phenotype_id;
+}#setPhenotype
+
+
+sub setPhenotypeCValueRecord {
+  my ($dbh, $uniquename, $name, $descriptor_id, $traitmethod_id, $traitvalue) = @_;
+  my ($sql, $row);
+  
+  my $cvterm_id = getCvtermId($dbh, $traitvalue, 'GRIN_descriptor_values');
+  if (!$cvterm_id) {
+    print "ERROR: unable to find descriptor value: $traitvalue\n";
+    exit;
+  }
+  
+  $uniquename = $dbh->quote($uniquename);
+  $name = $dbh->quote($name);
+  $traitvalue = $dbh->quote($traitvalue);
+  
+  my $phenotype_id = 0;
+  $sql = "
+    SELECT phenotype_id FROM phenotype
+    WHERE uniquename=$uniquename";
+  if ($row=doQuery($dbh, $sql, 1)) {
+    $phenotype_id = $row->{'phenotype_id'};
+    $sql = "
+      UPDATE phenotype
+        SET name=$name, 
+            cvalue_id=$cvterm_id,
+            attr_id=$descriptor_id,
+            assay_id=$traitmethod_id
+      WHERE phenotype_id=$phenotype_id";
+    doQuery($dbh, $sql, 0);
+  }
+  else {
+    $sql = "
+      INSERT INTO phenotype
+        (uniquename, name, cvalue_id, attr_id, assay_id)
+      VALUES
+        ($uniquename, $name, $cvterm_id, $descriptor_id, $traitmethod_id)
+      RETURNING phenotype_id";
+    $row = doQuery($dbh, $sql, 1);
+    $phenotype_id = $row->{'phenotype_id'};
+  }
+  
+  return $phenotype_id;
+}#setPhenotypeCValueRecord
+
+
+sub setPhenotypeValueRecord {
+  my ($dbh, $uniquename, $name, $descriptor_id, $traitmethod_id, $traitvalue) = @_;
+  my ($sql, $row);
+  
+  $uniquename = $dbh->quote($uniquename);
+  $name = $dbh->quote($name);
+  $traitvalue = $dbh->quote($traitvalue);
+  
+  my $phenotype_id = 0;
+  $sql = "
+    SELECT phenotype_id FROM phenotype
+    WHERE uniquename=$uniquename";
+  if ($row=doQuery($dbh, $sql, 1)) {
+    $phenotype_id = $row->{'phenotype_id'};
+    $sql = "
+      UPDATE phenotype
+        SET name=$name, 
+            value=$traitvalue,
+            attr_id=$descriptor_id,
+            assay_id=$traitmethod_id
+      WHERE phenotype_id=$phenotype_id";
+    doQuery($dbh, $sql, 0);
+  }
+  else {
+    $sql = "
+      INSERT INTO phenotype
+        (uniquename, name, value, attr_id, assay_id)
+      VALUES
+        ($uniquename, $name, $traitvalue, $descriptor_id, $traitmethod_id)
+      RETURNING phenotype_id";
+    $row = doQuery($dbh, $sql, 1);
+    $phenotype_id = $row->{'phenotype_id'};
+  }
+  
+  return $phenotype_id;
+}#setPhenotypeValueRecord
+
 
 
