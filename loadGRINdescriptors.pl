@@ -44,7 +44,7 @@ die $warn if ($#ARGV < 0);
   eval {
     loadDescriptors();
     loadCodes();
-    loadMethods();
+    loadStudies();
     loadCountries();
     
     # commit if we get this far
@@ -65,13 +65,13 @@ die $warn if ($#ARGV < 0);
 ###############################################################################
 
 sub loadDescriptors {
-  my $db_id = getDBId('GRIN_descriptors', 1);
+  my $db_id = getDBId($dbh, 'GRIN_descriptors', 1);
   if (!$db_id) {
     print "ERROR: unable to find db for GRIN descriptors.\n";
     exit;
   }
 
-  my $cv_id = getCVId('GRIN_descriptors', 1);
+  my $cv_id = getCVId($dbh, 'GRIN_descriptors', 1);
   if (!$cv_id) {
     print "ERROR: unable to find cv for GRIN descriptors.\n";
     exit;
@@ -117,18 +117,17 @@ print "cvterm id is $cvterm_id\n";
 }#loadDescriptors
 
 
-
 sub loadCodes {
   my ($header_ref, $row_ref) = readWorksheet($oBook, 'descriptor_codes', $dbh);
 print "Header:\n" . Dumper($header_ref);
 
-  my $db_id = getDBId('GRIN_descriptor_values', 1);
+  my $db_id = getDBId($dbh, 'GRIN_descriptor_values', 1);
   if (!$db_id) {
     print "ERROR: unable to find db for GRIN descriptor values.\n";
     exit;
   }
 
-  my $cv_id = getCVId('GRIN_descriptor_values', 1);
+  my $cv_id = getCVId($dbh, 'GRIN_descriptor_values', 1);
   if (!$cv_id) {
     print "ERROR: unable to find cv for GRIN descriptor values.\n";
     exit;
@@ -201,17 +200,17 @@ print "Created/updated code id $cvterm_id\n";
 }#loadCodes
 
 
-sub loadMethods {
+sub loadStudies {
   my ($header_ref, $row_ref) = readWorksheet($oBook, 'methods', $dbh);
 print "Header:\n" . Dumper($header_ref);
 
-  my $db_id = getDBId('GRIN_methods', 1);
+  my $db_id = getDBId($dbh, 'GRIN_methods', 1);
   if (!$db_id) {
     print "ERROR: unable to find db for GRIN methods.\n";
     exit;
   }
 
-  my $cv_id = getCVId('GRIN_methods', 1);
+  my $cv_id = getCVId($dbh, 'GRIN_methods', 1);
   if (!$cv_id) {
     print "ERROR: unable to find cv for GRIN methods.\n";
     exit;
@@ -239,20 +238,20 @@ print "Header:\n" . Dumper($header_ref);
     );
 #last;
   }
-}#loadMethods
+}#loadStudies
 
 
 sub loadCountries {
   my ($header_ref, $row_ref) = readWorksheet($oBook, 'country_codes', $dbh);
 print "Header:\n" . Dumper($header_ref);
 
-  my $db_id = getDBId('GRIN_countries', 1);
+  my $db_id = getDBId($dbh, 'GRIN_countries', 1);
   if (!$db_id) {
     print "ERROR: unable to find db for GRIN countries.\n";
     exit;
   }
 
-  my $cv_id = getCVId('GRIN_countries', 1);
+  my $cv_id = getCVId($dbh, 'GRIN_countries', 1);
   if (!$cv_id) {
     print "ERROR: unable to find cv for GRIN countries.\n";
     exit;
@@ -287,243 +286,5 @@ print "Header:\n" . Dumper($header_ref);
 ####                         HELPER FUNCTIONS                              ####
 ###############################################################################
 
-sub getCVId {
-  my ($cvname, $create) = @_;
-  my ($sql, $row);
-  
-  $sql = "
-    SELECT cv_id FROM cv WHERE name='$cvname'";
-  if ($row=doQuery($dbh, $sql, 1)) {
-    return $row->{'cv_id'};
-  }
-  elsif ($create) {
-    $sql = "
-      INSERT INTO cv
-        (name)
-      VALUES
-        ('$cvname')
-      RETURNING cv_id";
-    $row = doQuery($dbh, $sql, 1);
-    return $row->{'cv_id'};
-  }
-  
-  return 0;
-}#getCVId
-
-
-sub getDBId {
-  my ($dbname, $create) = @_;
-  my ($sql, $row);
-  
-  $sql = "
-    SELECT db_id FROM db WHERE name='$dbname'";
-  if ($row=doQuery($dbh, $sql, 1)) {
-    return $row->{'db_id'};
-  }
-  elsif ($create) {
-    $sql = "
-      INSERT INTO db
-        (name)
-      VALUES
-        ('$dbname')
-      RETURNING db_id";
-    $row = doQuery($dbh, $sql, 1);
-    return $row->{'db_id'};
-  }
-  
-  return 0;
-}#getDBId
-
-sub getCvtermIdByDbxrefId {
-  my ($dbh, $dbxref_id) = @_;
-  my ($sql, $row);
-  
-  $sql = "SELECT cvterm_id FROM cvterm WHERE dbxref_id=$dbxref_id";
-  if ($row=doQuery($dbh, $sql, 1)) {
-    return $row->{cvterm_id};
-  }
-  else {
-    return 0;
-  }
-}#getCvtermIdByDbxrefId
-
-
-sub getDbxrefId {
-  my ($dbh, $accession, $dbname) = @_;
-  my ($sql, $row);
-  
-  $accession = $dbh->quote($accession);
-  $dbname = $dbh->quote($dbname);
-  
-  $sql = "
-    SELECT dbxref_id FROM dbxref
-    WHERE accession=$accession 
-          AND db_id = (SELECT db_id FROM db WHERE name=$dbname)";
-  if ($row=doQuery($dbh, $sql, 1)) {
-    return $row->{'dbxref_id'};
-  }
-  
-  return 0;
-}#getDbxrefId
-
-
-sub setCvtermRecord {
-  my ($dbh, $dbxref_id, $term, $description, $cvname) = @_;
-  my ($sql, $row);
-  
-  $term = $dbh->quote($term);
-  $description = $dbh->quote($description);
-  $cvname = $dbh->quote($cvname);
-  
-  my $cvterm_id = 0;
-  $sql = "
-    SELECT cvterm_id FROM cvterm
-    WHERE name=$term 
-          AND cv_id = (SELECT cv_id FROM cv WHERE name=$cvname)";
-  if ($row=doQuery($dbh, $sql, 1)) {
-    $cvterm_id = $row->{'cvterm_id'};
-    $sql = "
-      UPDATE cvterm
-        SET definition=$description
-      WHERE cvterm_id=$cvterm_id";
-    doQuery($dbh, $sql, 0);
-  }
-  else {
-    $sql = "
-      INSERT INTO cvterm
-        (dbxref_id, name, definition, cv_id)
-      VALUES
-        ($dbxref_id, $term, $description,
-         (SELECT cv_id FROM cv WHERE name=$cvname)
-        )
-      RETURNING cvterm_id";
-    $row = doQuery($dbh, $sql, 1);
-    $cvterm_id = $row->{'cvterm_id'};
-  }
-  
-  return $cvterm_id;
-}#setCvtermRecord
-
-
-sub setCvtermProp {
-  my ($dbh, $cvterm_id, $value, $type, $cvname) = @_;
-  my ($sql, $row);
-  
-  if (!$cvterm_id || !$type) {
-    return 0;
-  }
-  
-  my $type_id = getCvtermId($dbh, $type, $cvname);
-  if (!$type_id) {
-    print "ERROR: the cvterm property '$type' doesn't exist\n";
-    exit;
-  }
-
-  $value = $dbh->quote($value);
-  $type = $dbh->quote($type);
-  
-  my $cvtermprop_id = 0;
-  $sql = "
-    SELECT cvtermprop_id FROM cvtermprop
-    WHERE cvterm_id=$cvterm_id AND type_id=$type_id";
-  if ($row=doQuery($dbh, $sql, 1)) {
-    $cvtermprop_id = $row->{'cvtermprop_id'};
-    $sql = "
-      UPDATE cvtermprop
-        SET value=$value
-      WHERE cvtermprop_id = $cvtermprop_id";
-    doQuery($dbh, $sql, 0);
-  }
-  else {
-    $sql = "
-      INSERT INTO cvtermprop
-        (cvterm_id, value, type_id)
-      VALUES
-        ($cvterm_id, $value, $type_id)
-      RETURNING cvterm_id";
-    $row = doQuery($dbh, $sql, 1);
-    $cvtermprop_id = $row->{'cvtermprop_id'};
-  }
-  
-  return $cvtermprop_id;
-}#setCvtermProp
-
-
-sub setCvtermRelationship {
-  my ($dbh, $subject_id, $object_id, $type, $cvname) = @_;
-  my ($sql, $row);
-  
-  $type = $dbh->quote($type);
-  $cvname = $dbh->quote($cvname);
-  
-  $sql = "
-    SELECT cvterm_relationship_id FROM cvterm_relationship
-    WHERE subject_id=$subject_id AND object_id=$object_id
-          AND type_id=(SELECT cvterm_id 
-                       FROM cvterm WHERE name=$type
-                            AND cv_id = (SELECT cv_id FROM cv
-                                         WHERE name=$cvname))";
-  if ($row = doQuery($dbh, $sql, 1)) {
-    return $row->{'cvterm_relationship_id'};
-  }
-  else {
-    $sql = "
-      INSERT INTO cvterm_relationship
-        (subject_id, object_id, type_id)
-      VALUES
-        ($subject_id, $object_id,
-         (SELECT cvterm_id 
-                       FROM cvterm WHERE name=$type
-                            AND cv_id = (SELECT cv_id FROM cv WHERE name=$cvname))
-        )
-      RETURNING cvterm_relationship_id";
-    $row = doQuery($dbh, $sql, 1);
-    return $row->{'cvterm_relationship_id'};
-  }
-}#setCvtermRelationship
-
-
-sub setDbxrefProp {
-  my ($dbh, $dbxref_id, $value, $type, $dbname) = @_;
-  my ($sql, $row);
-  
-  if (!$dbxref_id || !$type) {
-    return 0;
-  }
-  
-  my $type_id = getCvtermId($dbh, $type, $dbname);
-  if (!$type_id) {
-    print "ERROR: the dbxref property '$type' doesn't exist\n";
-    exit;
-  }
-
-  $value = $dbh->quote($value);
-  $type = $dbh->quote($type);
-  
-  my $dbxrefprop_id = 0;
-  $sql = "
-    SELECT dbxrefprop_id FROM dbxrefprop
-    WHERE dbxref_id=$dbxref_id AND type_id=$type_id";
-  if ($row=doQuery($dbh, $sql, 1)) {
-    $dbxrefprop_id = $row->{'dbxrefprop_id'};
-    $sql = "
-      UPDATE dbxrefprop
-        SET value=$value
-      WHERE dbxrefprop_id = $dbxrefprop_id";
-    doQuery($dbh, $sql, 0);
-  }
-  else {
-    $sql = "
-      INSERT INTO dbxrefprop
-        (dbxref_id, value, type_id)
-      VALUES
-        ($dbxref_id, $value, $type_id)
-      RETURNING dbxrefprop_id";
-    $row = doQuery($dbh, $sql, 1);
-    $dbxrefprop_id = $row->{'dbxrefprop_id'};
-  }
-  
-  return $dbxrefprop_id;
-}#setDbxrefProp
 
 
