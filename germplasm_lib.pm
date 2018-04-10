@@ -13,6 +13,7 @@ our @EXPORT      = (
                     qw(getCvtermIdByDbxrefId),
                     qw(getDBId),
                     qw(getDbxrefId),
+                    qw(getCvtermId),
                     qw(getStockId),
                     qw(openExcelFile),
                     qw(readHeaders),
