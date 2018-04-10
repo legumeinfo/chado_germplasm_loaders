@@ -1,6 +1,7 @@
 # file: loadGermplasmData.pl
 #
-# purpose: read germplasm data spreadsheet (.xls)and load into Chado
+# purpose: read germplasm data spreadsheet (.xls) and load into Chado
+#          template: data/Germplasm_trait_template
 #
 # history:
 #  06/14/16  eksc  created
@@ -101,7 +102,7 @@ sub loadGermplasm {
 
     # alias
     if ($rows[$row]{'alias'}) {
-      loadSynonyms($dbh, $rows[$row]{'alias'}, $rows[$row]{'ID'}, $stock_id);
+      loadSynonyms($dbh, $rows[$row]{'alias'}, $rows[$row]{'id'}, $stock_id);
     }
     
 # TODO:
@@ -154,6 +155,10 @@ sub loadSynonyms {
   my ($dbh, $alias, $stock_name, $stock_id) = @_;
   my ($sql, $sth, $row);
   
+  if (!$alias || !$stock_name || $stock_id) {
+    return;
+  }
+  
   # Get all existing synonyms for this stock
   my %loaded_synonyms;
   $sql = "
@@ -163,11 +168,11 @@ sub loadSynonyms {
                          WHERE name='alias' 
                                AND cv_id=(SELECT cv_id from cv 
                                           WHERE name='germplasm'))";
-   $sth = doQuery($dbh, $sql, 0);
-   while ($row=$sth->fetchrow_hashref) {
-     $loaded_synonyms{$row->{'value'}} = $row->{'rank'};
-   }
-   my $rank = (scalar keys %loaded_synonyms > 0) ? (scalar keys %loaded_synonyms)+1 : 1;
+  $sth = doQuery($dbh, $sql, 0);
+  while ($row=$sth->fetchrow_hashref) {
+    $loaded_synonyms{$row->{'value'}} = $row->{'rank'};
+  }
+  my $rank = (scalar keys %loaded_synonyms > 0) ? (scalar keys %loaded_synonyms)+1 : 1;
 
   my @synonyms = split ';', $alias;
   foreach my $synonym (@synonyms) {
