@@ -7,6 +7,7 @@ package germplasm_lib;
 our $VERSION     = 1.00;
 our @ISA         = qw(Exporter);
 our @EXPORT      = (
+                    qw(attachPhenotypeProject),
                     qw(doQuery),
                     qw(getCVId),
                     qw(getCvtermId),
@@ -14,6 +15,7 @@ our @EXPORT      = (
                     qw(getDBId),
                     qw(getDbxrefId),
                     qw(getCvtermId),
+                    qw(getProjectID),
                     qw(getStockId),
                     qw(openExcelFile),
                     qw(readHeaders),
@@ -24,8 +26,36 @@ our @EXPORT      = (
                     qw(setCvtermRelationship),
                     qw(setDbxrefProp),
                     qw(setDbxrefRecord),
+                    qw(setProjectRecord),
+                    qw(setProjectProp),
                     qw(setStockProp),
                    );
+
+
+sub attachPhenotypeProject {
+  my ($dbh, $phenotype_id, $project_id) = @_;
+  my ($sql, $row);
+  
+  $sql = "
+    SELECT project_phenotype_id FROM project_phenotype
+    WHERE project_id=$project_id AND phenotype_id=$phenotype_id";
+  if ($row=doQuery($dbh, $sql, 1)) {
+    return $row->{'project_phenotype_id'};
+  }
+  else {
+    $sql = "
+      INSERT INTO project_phenotype
+        (project_id, phenotype_id)
+      VALUES
+        ($project_id, $phenotype_id)
+      RETURNING project_phenotype_id";
+    if ($row=doQuery($dbh, $sql, 1)) {
+      return $row->{'project_phenotype_id'};
+    }  
+  }
+  
+  return undef;
+}#attachPhenotypeProject
 
 
 sub doQuery {
@@ -139,6 +169,22 @@ sub getDbxrefId {
   
   return 0;
 }#getDbxrefId
+
+
+sub getProjectID {
+  my ($dbh, $projectname) = @_;
+  my ($sql, $row);
+
+  $projectname = $dbh->quote($projectname);
+  $sql = "
+    SELECT project_id FROM project
+    WHERE name=$projectname";
+  if ($row = doQuery($dbh, $sql, 1)) {
+    return $row->{'project_id'};
+  }
+  
+  return undef;
+}#getProjectID
 
 
 sub getStockId {
@@ -475,6 +521,83 @@ sub setDbxrefRecord {
   
   return $dbxref_id;
 }#setDbxrefRecord
+
+
+sub setProjectRecord {
+  my ($dbh, $name, $description) = @_;
+  my ($sql, $row);
+  
+  $name = $dbh->quote($name);
+  $description = $dbh->quote($description);
+  
+  my $project_id;
+  $sql = "SELECT project_id FROM project WHERE name=$name";
+  $row = doQuery($dbh, $sql, 1);
+  if ($row) {
+    $project_id = $row->{'project_id'};
+  }
+  
+  if ($project_id) {
+    $sql = "UPDATE project SET description=$description WHERE project_id=$project_id";
+    doQuery($dbh, $sql, 0);
+  }
+  else {
+    $sql = "
+      INSERT INTO project
+        (name, description)
+      VALUES
+        ($name, $description)
+      RETURNING project_id";
+    if ($row = doQuery($dbh, $sql, 1)) {
+      $project_id = $row->{'project_id'};
+    }
+  }
+  
+  return $project_id
+}#setProjectRecord
+
+
+sub setProjectProp {
+  my ($dbh, $project_id, $value, $type, $cv) = @_;
+  my ($sql, $row);
+  
+  if (!$cv) { $cv = 'LegumeInfo:traits'; }
+  
+  return if (!$value || $value eq '');
+  
+  $value =~ s/^\"//;
+  $value =~ s/\"$//;
+
+  $sql = "
+    SELECT projectprop_id FROM projectprop
+    WHERE project_id=$project_id
+          AND type_id=(SELECT cvterm_id FROM cvterm 
+                       WHERE name='$type'
+                             AND cv_id=(SELECT cv_id FROM cv
+                                        WHERE name='$cv'))";
+  if ($row = doQuery($dbh, $sql, 1)) {
+    my $projectprop_id = $row->{'projectprop_id'};
+  
+    $sql = "
+      UPDATE projectprop
+        SET value='$value'
+      WHERE projectprop_id=$projectprop_id";
+  }
+  else {
+    $sql = "
+      INSERT INTO projectprop
+        (project_id, value, type_id)
+      VALUES
+        ($project_id, '$value', 
+         (SELECT cvterm_id FROM cvterm 
+                         WHERE name='$type'
+                               AND cv_id=(SELECT cv_id FROM cv
+                                          WHERE name='$cv'))
+        )";
+  }
+  
+  doQuery($dbh, $sql, 0);
+}#setProjectProp
 
 
 sub setStockProp {

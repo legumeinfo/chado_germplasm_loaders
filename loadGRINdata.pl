@@ -32,7 +32,9 @@ die $warn if ($#ARGV < 0);
   my $excelfile = $ARGV[0];
 
   # open input excel file
+  print "Opening Excel file...\n";
   my $oBook = openExcelFile($excelfile);
+  print "  ...done.\n";
 
   # Attach to db
   my $dbh = &connectToDB; # (defined in db.pl)
@@ -42,6 +44,7 @@ die $warn if ($#ARGV < 0);
   }
   
   eval {
+#    loadGrinMethods();  # These are actually studies
     loadGrinEvaluationData();
     
     # commit if we get this far
@@ -61,8 +64,27 @@ die $warn if ($#ARGV < 0);
 ####                          MAIN FUNCTIONS                               ####
 ###############################################################################
 
+sub loadGrinMethods() {
+  my ($header_ref, $row_ref) = readWorksheet($oBook, 'grin_method', $dbh);
+#print "Header:\n" . Dumper($header_ref);
+
+  my $row_count = 0;
+  my @rows = @$row_ref;
+  for (my $row=0; $row<=$#rows; $row++) {
+    $row_count++;
+#print "row: $row_count\n" . Dumper($rows[$row]);
+     # fields: GRIN_method, GRIN_description
+     my $project_id = setProjectRecord($dbh, $rows[$row]{'GRIN_method'}, $rows[$row]{'GRIN_description'});
+#print "Got project id $project_id\n";
+     setProjectProp($dbh, $project_id, 'phenotype_study', 'project_type', 'genbank');
+#last if ($row > 5);
+  }
+
+}#loadGrinMethods
+
+
 sub loadGrinEvaluationData() {
-  my ($header_ref, $row_ref) = readWorksheet($oBook, 'legumes_grin_evaluation_data', $dbh);
+  my ($header_ref, $row_ref) = readWorksheet($oBook, 'grin_evaluation_data', $dbh);
 print "Header:\n" . Dumper($header_ref);
 
   # no data: accession_suffix, original_value, low, high, mean, sdev, ssize, 
@@ -80,7 +102,7 @@ print "Header:\n" . Dumper($header_ref);
   my @rows = @$row_ref;
   for (my $row=0; $row<=$#rows; $row++) {
     $row_count++;
-print "row: $row_count\n" . Dumper($rows[$row]);
+#print "row: $row_count\n" . Dumper($rows[$row]);
 
     # stock - stock_phenotype - phenotype
     # Create a phenotype record for this trait
@@ -98,13 +120,16 @@ print "row: $row_count\n" . Dumper($rows[$row]);
       exit;
     }
     
+    # Attach project record for method/study
+    my $project_id = getProjectID($dbh, $rows[$row]{'method_name'});
+    attachPhenotypeProject($dbh, $phenotype_id, $project_id);
+    
     # Attach to stock
     my $stock_id = getStockId($dbh, $accession);
     if (!$stock_id) {
       print "ERROR: Unable to find stock record for $accession\n";
       exit;
     }
-    
     attachToStock($dbh, $phenotype_id, $stock_id); 
 #last if ($row > 5);
   }
@@ -152,7 +177,7 @@ sub getDescriptorValueType {
     return $row->{'value'};
   }
   
-  return 0;
+  return undef;
 }#getDescriptorValueType
 
 
