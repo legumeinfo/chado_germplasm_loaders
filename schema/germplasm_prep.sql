@@ -10,6 +10,25 @@
 --  CONSTRAINT stock_eimage_c1 UNIQUE(stock_id, eimage_id)
 --);
 
+--CREATE TABLE phenotypeprop (
+--  phenotypeprop_id BIGSERIAL NOT NULL,
+--     PRIMARY KEY (phenotypeprop_id),
+--  phenotype_id BIGINT NOT NULL,
+--     FOREIGN KEY (phenotype_id) REFERENCES phenotype (phenotype_id) 
+--       ON DELETE CASCADE INITIALLY DEFERRED,
+--  type_id BIGINT NOT NULL,
+--     FOREIGN KEY (type_id) REFERENCES cvterm (cvterm_id) 
+--       ON DELETE CASCADE INITIALLY DEFERRED,
+--   value TEXT NULL,
+--   rank INT NOT NULL DEFAULT 0,
+--   cvalue_id BIGINT,
+--     FOREIGN KEY (cvalue_id) REFERENCES cvterm (cvterm_id) ON DELETE SET NULL,
+--    CONSTRAINT phenotypeprop_c1 UNIQUE (phenotype_id,type_id,rank)
+--);
+--CREATE INDEX phenotypeprop_idx1 ON phenotypeprop (phenotype_id);
+--CREATE INDEX phenotypeprop_idx2 ON phenotypeprop (type_id);
+--CREATE INDEX phenotypeprop_idx3 ON phenotypeprop (cvalue_id);
+
 -- Create some dbs
 INSERT INTO db
   (name, description, urlprefix, url)
@@ -66,6 +85,18 @@ VALUES
    'has_method',
    'Trait descriptor (subject) has method trait observation method (object).'
   )
+  ((SELECT db_id FROM db WHERE name='LegumeInfo:traits'),
+   'method_of',
+   'Indicates that the subject is a method of the object.'
+  ),
+  ((SELECT db_id FROM db WHERE name='LegumeInfo:traits'),
+   'scale_of',
+   'Indicates that the subject is a scale of the object.'
+  ),
+  ((SELECT db_id FROM db WHERE name='LegumeInfo:traits'),
+   'value_type',
+   'The type of value attached to a scale.'
+  )
 ;
 
 
@@ -84,6 +115,7 @@ VALUES
   ('GRIN_countries',
    'US National Germplasm Plant System country codes'
   );
+  
   
 -- NOTE: 'Accession' may have been created by metadata loader
 INSERT INTO cvterm
@@ -107,6 +139,21 @@ VALUES
   ((SELECT cv_id FROM cv WHERE name='GRIN_descriptors'),
    'value_type',
    'Indicates the type of value a GRIN descriptor may have.',
+   (SELECT dbxref_id FROM dbxref WHERE accession='value_type')
+  )
+  ((SELECT cv_id FROM cv WHERE name='LegumeInfo:traits'),
+   'method_of',
+   'Indicates that the subject is a method of the object.',
+   (SELECT dbxref_id FROM dbxref WHERE accession='method_of')
+  ),
+  ((SELECT cv_id FROM cv WHERE name='LegumeInfo:traits'),
+   'scale_of',
+   'Indicates that the subject is a scale of the object.',
+   (SELECT dbxref_id FROM dbxref WHERE accession='scale_of')
+  ),
+  ((SELECT cv_id FROM cv WHERE name='LegumeInfo:traits'),
+   'value_type',
+   'The type of value attached to a scale.',
    (SELECT dbxref_id FROM dbxref WHERE accession='value_type')
   )
 ;
