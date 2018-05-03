@@ -8,6 +8,9 @@ our $VERSION     = 1.00;
 our @ISA         = qw(Exporter);
 our @EXPORT      = (
                     qw(attachPhenotypeProject),
+                    qw(attachProjectDbxref),
+                    qw(attachStockCollection),
+                    qw(createStockCollection),
                     qw(doQuery),
                     qw(getCVId),
                     qw(getCvtermId),
@@ -56,6 +59,68 @@ sub attachPhenotypeProject {
   
   return undef;
 }#attachPhenotypeProject
+
+
+sub attachProjectDbxref {
+  my ($dbh, $project_id, $dbxref_id) = @_;
+  my ($sql, $row);
+  
+  $sql = "
+    SELECT project_dbxref_id FROM project_dbxref
+    WHERE project_id=$project_id AND dbxref_id=$dbxref_id";
+  if (!($row=doQuery($dbh, $sql, 1))) {
+    $sql = "
+      INSERT INTO project_dbxref
+        (project_id, dbxref_id)
+      VALUES
+        ($project_id, $dbxref_id)";
+    doQuery($dbh, $sql, 0);
+  }
+}#attachPhenotypeProject
+
+
+sub attachStockCollection {
+  my ($dbh, $stock_id, $stockcollection_id) = @_;
+  my ($sql, $row);
+  
+  $sql = "
+    SELECT * FROM stockcollection_stock
+    WHERE stock_id=$stock_id AND stockcollection_id=$stockcollection_id";
+  if (!($row = doQuery($dbh, $sql, 1))) {
+    $sql = "
+      INSERT INTO stockcollection_stock
+        (stock_id, stockcollection_id)
+      VALUES
+        ($stock_id, $stockcollection_id)";
+    doQuery($dbh, $sql, 0);
+  }
+}#attachStockCollection
+
+
+sub createStockCollection {
+  my ($dbh, $name, $prefix, $type_id) = @_;
+  my ($sql, $row);
+  
+  my $uniquename = $prefix . "_$name";
+  $sql = "
+    SELECT stockcollection_id FROM stockcollection
+    WHERE uniquename = '$uniquename'";
+  if ($row = doQuery($dbh, $sql, 1)) {
+    return $row->{'stockcollection_id'};
+  }
+  
+  $sql = "
+    INSERT INTO stockcollection
+      (type_id, name, uniquename)
+    VALUES
+      ($type_id, '$name', '$uniquename')
+    RETURNING stockcollection_id";
+  if ($row = doQuery($dbh, $sql, 1)) {
+    return $row->{'stockcollection_id'};
+  }
+
+  return undef;  
+}#createStockCollection
 
 
 sub doQuery {
@@ -284,7 +349,7 @@ sub readRow {
        $col++) {
     if (my $cell = $sheet->{Cells}[$row][$col]) {
       my $value = $cell->Value();
-      $value =~ s/'/''/g; #'
+      $value =~ s/'/''/g; 
       if (($value || $value eq '0') && $value ne '' && lc($value) ne 'null') {
         $value =~ s/^\s+//;
         $value =~ s/\s+$//;
