@@ -43,8 +43,13 @@ die $warn if ($#ARGV < 0);
     exit;
   }
   
+  my %collections = (
+    'PEANUT.MINI.CORE'         => 'US Mini Core' ,
+    'PEANUT.CORE.US'           => 'US Core',
+    'PEANUT.MINI.CORE.ICRISAT' => 'ICRISAT Mini Core',
+  );
+  
   eval {
-#    loadGrinMethods();  # These are actually studies
     loadGrinEvaluationData();
     
     # commit if we get this far
@@ -64,28 +69,23 @@ die $warn if ($#ARGV < 0);
 ####                          MAIN FUNCTIONS                               ####
 ###############################################################################
 
-sub loadGrinMethods() {
-  my ($header_ref, $row_ref) = readWorksheet($oBook, 'grin_method', $dbh);
-#print "Header:\n" . Dumper($header_ref);
-
-  my $row_count = 0;
-  my @rows = @$row_ref;
-  for (my $row=0; $row<=$#rows; $row++) {
-    $row_count++;
-#print "row: $row_count\n" . Dumper($rows[$row]);
-     # fields: GRIN_method, GRIN_description
-     my $project_id = setProjectRecord($dbh, $rows[$row]{'GRIN_method'}, $rows[$row]{'GRIN_description'});
-#print "Got project id $project_id\n";
-     setProjectProp($dbh, $project_id, 'phenotype_study', 'project_type', 'genbank');
-#last if ($row > 5);
-  }
-
-}#loadGrinMethods
-
-
 sub loadGrinEvaluationData() {
   my ($header_ref, $row_ref) = readWorksheet($oBook, 'grin_evaluation_data', $dbh);
 print "Header:\n" . Dumper($header_ref);
+
+  # get/create cvterm for 'stock_collection'
+  my $dbxref_id = setDbxrefRecord(
+    $dbh, 
+    'stock_collection', 
+    'internal'
+  );
+  my $stock_collection_id = setCvtermRecord(
+    $dbh, 
+    $dbxref_id, 
+    'stock_collection', 
+    '',
+    'stock_property'
+  );
 
   # no data: accession_suffix, original_value, low, high, mean, sdev, ssize, 
   #    frequency
@@ -100,37 +100,53 @@ print "Header:\n" . Dumper($header_ref);
   
   my $row_count = 0;
   my @rows = @$row_ref;
+
   for (my $row=0; $row<=$#rows; $row++) {
     $row_count++;
 #print "row: $row_count\n" . Dumper($rows[$row]);
 
-    # stock - stock_phenotype - phenotype
-    # Create a phenotype record for this trait
+    # Get stock id
     my $accession = $rows[$row]{'accession_prefix'} . ' ' . $rows[$row]{'accession_number'};
-    my $phenotype_id = setPhenotype(
-      $dbh,
-      $accession, 
-      $rows[$row]{'descriptor_name'}, 
-      $rows[$row]{'method_name'}, 
-      $rows[$row]{'observation_value'}
-    );
- 
-    if (!$phenotype_id) {
-      print "ERROR: Failed to insert phenotype " . $rows[$row]{'descriptor_name'}. " for $accession\n";
-      exit;
-    }
-    
-    # Attach project record for method/study
-    my $project_id = getProjectID($dbh, $rows[$row]{'method_name'});
-    attachPhenotypeProject($dbh, $phenotype_id, $project_id);
-    
-    # Attach to stock
     my $stock_id = getStockId($dbh, $accession);
     if (!$stock_id) {
       print "ERROR: Unable to find stock record for $accession\n";
       exit;
     }
-    attachToStock($dbh, $phenotype_id, $stock_id); 
+
+    if ($collections{$rows[$row]{'method_name'}}) {
+      # Get/create stockcollection
+      my $stockcollection_id = createStockCollection($dbh,
+                                                     $rows[$row]{'method_name'}, 
+                                                     'GRIN', 
+                                                     $stock_collection_id);
+      
+      # Attach to stock
+      attachStockCollection($dbh, $stock_id, $stockcollection_id);
+    }
+    
+    else {
+      # stock - stock_phenotype - phenotype
+      # Create a phenotype record for this trait
+      my $phenotype_id = setPhenotype(
+        $dbh,
+        $accession, 
+        $rows[$row]{'descriptor_name'}, 
+        $rows[$row]{'method_name'}, 
+        $rows[$row]{'observation_value'}
+      );
+ 
+      if (!$phenotype_id) {
+        print "ERROR: Failed to insert phenotype " . $rows[$row]{'descriptor_name'}. " for $accession\n";
+        exit;
+      }
+    
+      # Attach project record for method/study
+      my $project_id = getProjectID($dbh, $rows[$row]{'method_name'});
+      attachPhenotypeProject($dbh, $phenotype_id, $project_id);
+    
+      # Attach to stock
+      attachToStock($dbh, $phenotype_id, $stock_id);
+    }
 #last if ($row > 5);
   }
 

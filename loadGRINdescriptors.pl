@@ -78,20 +78,19 @@ sub loadDescriptors {
   }
   
   my ($header_ref, $row_ref) = readWorksheet($oBook, 'descriptors', $dbh);
-print "Header:\n" . Dumper($header_ref);
+#print "Header:\n" . Dumper($header_ref);
 
   my $row_count = 0;
   my @rows = @$row_ref;
   for (my $row=0; $row<=$#rows; $row++) {
     $row_count++;
- print "Row:\n" . Dumper($rows[$row]);
+#print "Row:\n" . Dumper($rows[$row]);
    
     my $dbxref_id = setDbxrefRecord(
       $dbh, 
       $rows[$row]{'GRIN_identifier'}, 
       'GRIN_descriptors'
     );
-print "dbxref_id: $dbxref_id\n";
 
     # Set human readable form as the cvterm
     my $cvterm_id = setCvtermRecord(
@@ -101,7 +100,6 @@ print "dbxref_id: $dbxref_id\n";
       $rows[$row]{'Human_readable'},
       'GRIN_descriptors'
     );
-print "cvterm id is $cvterm_id\n";
 
     # Set GRIN's long form of the trait name
     setCvtermProp(
@@ -221,6 +219,8 @@ print "Header:\n" . Dumper($header_ref);
   for (my $row=0; $row<=$#rows; $row++) {
     $row_count++;
     
+    # fields: GRIN_method, GRIN_description, GRIN_identifier
+    
     # Create dbxref with GRIN id
     my $dbxref_id = setDbxrefRecord(
       $dbh, 
@@ -232,11 +232,17 @@ print "Header:\n" . Dumper($header_ref);
     my $cvterm_id = setCvtermRecord(
       $dbh, 
       $dbxref_id, 
-      $rows[$row]{'method_name'}, 
-      $rows[$row]{'definition'}, 
+      $rows[$row]{'GRIN_method'}, 
+      $rows[$row]{'GRIN_identifier'}, 
       'GRIN_methods'
     );
-#last;
+
+    my $project_id = setProjectRecord($dbh, $rows[$row]{'GRIN_method'}, $rows[$row]{'GRIN_description'});
+    setProjectProp($dbh, $project_id, 'phenotype_study', 'project_type', 'genbank');
+    if ($dbxref_id) {
+      attachProjectDbxref($dbh, $project_id, $dbxref_id);
+    }
+#last if ($row > 5);
   }
 }#loadStudies
 
