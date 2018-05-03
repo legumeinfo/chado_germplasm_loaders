@@ -41,7 +41,22 @@ die $warn if ($#ARGV < 0);
     print "\nUnable to connect to database.\n\n";
     exit;
   }
-print "Connect to db: $dbh\n";
+print "\nThis script needs to be tested before use.\n\n";
+exit;
+
+  # get/create cvterm for 'germplasm'
+  my $dbxref_id = setDbxrefRecord(
+    $dbh, 
+    'germplasm', 
+    'internal'
+  );
+  my $stock_collection_id = setCvtermRecord(
+    $dbh, 
+    $dbxref_id, 
+    'germplasm', 
+    '',
+    'stock_type'
+  );
   
   eval {
     loadGermplasm();
