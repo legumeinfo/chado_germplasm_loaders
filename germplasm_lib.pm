@@ -8,8 +8,11 @@ our $VERSION     = 1.00;
 our @ISA         = qw(Exporter);
 our @EXPORT      = (
                     qw(attachPhenotypeProject),
+                    qw(attachPhenotypeStock),
                     qw(attachProjectDbxref),
+                    qw(attachProjectPub),
                     qw(attachStockCollection),
+                    qw(createCvterm),
                     qw(createStockCollection),
                     qw(doQuery),
                     qw(getCVId),
@@ -17,9 +20,13 @@ our @EXPORT      = (
                     qw(getCvtermIdByDbxrefId),
                     qw(getDBId),
                     qw(getDbxrefId),
+                    qw(getDescriptorValueType),
                     qw(getCvtermId),
                     qw(getProjectID),
                     qw(getStockId),
+                    qw(makeDescriptorKey),
+                    qw(makeOrdinalValue),
+                    qw(makeScaleName),
                     qw(openExcelFile),
                     qw(readHeaders),
                     qw(readRow),
@@ -61,6 +68,24 @@ sub attachPhenotypeProject {
 }#attachPhenotypeProject
 
 
+sub attachPhenotypeStock {
+  my ($dbh, $phenotype_id, $stock_id) = @_;
+  my ($sql, $row);
+  
+  $sql = "
+    SELECT stock_phenotype_id FROM stock_phenotype
+    WHERE phenotype_id=$phenotype_id AND stock_id=$stock_id";
+  if (!($row = doQuery($dbh, $sql, 1))) {
+    $sql = "
+      INSERT INTO stock_phenotype
+        (phenotype_id, stock_id)
+      VALUES
+        ($phenotype_id, $stock_id)";
+    doQuery($dbh, $sql, 0);
+  }
+}#attachPhenotypeStock
+
+
 sub attachProjectDbxref {
   my ($dbh, $project_id, $dbxref_id) = @_;
   my ($sql, $row);
@@ -79,6 +104,13 @@ sub attachProjectDbxref {
 }#attachPhenotypeProject
 
 
+sub attachProjectPub {
+  my ($dbh, $project_id, $pub) = @_;
+print "\nattachProjectPub() is not yet implemented.\n\n";
+exit;
+}#attachProjectPub
+
+
 sub attachStockCollection {
   my ($dbh, $stock_id, $stockcollection_id) = @_;
   my ($sql, $row);
@@ -95,6 +127,18 @@ sub attachStockCollection {
     doQuery($dbh, $sql, 0);
   }
 }#attachStockCollection
+
+
+sub createCvterm {
+  my ($dbh, $term, $desc, $accession, $cvname, $dbname) = @_;
+    
+  # get/create dbxref for $accession
+  if (my $dbxref_id = setDbxrefRecord($dbh, $accession, $dbname)) {
+    return setCvtermRecord($dbh, $dbxref_id, $term, $desc, $cvname);
+  }
+  
+  return undef;
+}#createCvterm
 
 
 sub createStockCollection {
@@ -236,6 +280,28 @@ sub getDbxrefId {
 }#getDbxrefId
 
 
+sub getDescriptorValueType {
+  my ($dbh, $scale, $cvname) = @_;
+  my ($sql, $row);
+  
+  $sql = "
+    SELECT value FROM cvtermprop
+    WHERE cvterm_id=(SELECT cvterm_id FROM cvterm 
+                     WHERE name='$scale' 
+                           AND cv_id=(SELECT cv_id FROM cv 
+                                      WHERE name='$cvname'))
+          AND type_id=(SELECT cvterm_id FROM cvterm
+                       WHERE name='value_type'
+                         AND cv_id=(SELECT cv_id FROM cv 
+                                      WHERE name='$cvname'))";
+  if ($row=doQuery($dbh, $sql, 1)) {
+    return $row->{'value'};
+  }
+  
+  return undef;
+}#getDescriptorValueType
+
+
 sub getProjectID {
   my ($dbh, $projectname) = @_;
   my ($sql, $row);
@@ -289,6 +355,29 @@ sub getStockId {
   
   return 0;
 }#getStockId
+
+
+sub makeDescriptorKey {
+  my ($trait, $method, $scale) = @_;
+  return (join ":", ($trait, $method, $scale));
+}#makeDescriptorKey
+
+
+sub makeOrdinalValue {
+  my ($value, $scale) = @_;
+  return "$value|$scale";
+}#makeOrdinalValue
+
+
+sub makeScaleName {
+  my ($method) = @_;
+  
+  if ($method) {
+    return "$method - scale";
+  }
+  
+  return undef;
+}#makeScaleName
 
 
 sub openExcelFile {
@@ -381,7 +470,7 @@ sub readWorksheet {
     }
     else {
       my $data_row = readRow($sheet, $row_num, @headers, $dbh);
-      if ($data_row && (scalar keys %$data_row) > 1) {
+      if ($data_row && (scalar keys %$data_row) > 0) {
         push @rows, $data_row;
       }
     }
@@ -586,6 +675,144 @@ sub setDbxrefRecord {
   
   return $dbxref_id;
 }#setDbxrefRecord
+
+
+sub setPhenotype {
+  my ($dbh, $stockname, $descriptor, $traitmethod, $traitvalue) = @_;
+  my ($sql, $row);
+  
+  # create a uniquename
+  my $uniquename = "$stockname:$descriptor:$traitmethod:$traitvalue";
+  
+  # name is just the descriptor
+  my $name = $descriptor;
+  
+  my $descriptor_id = getCvtermId($dbh, $descriptor, 'GRIN_descriptors');
+  if (!$descriptor_id) {
+    print "ERROR: no term found for GRIN descriptor $descriptor\n";
+    exit;
+  }
+  
+  my $traitmethod_id = getCvtermId($dbh, $traitmethod, 'GRIN_methods');
+  if (!$descriptor_id) {
+    print "ERROR: no term found for GRIN method $traitmethod\n";
+    exit;
+  }
+
+  my $value_type = getDescriptorValueType($dbh, $descriptor);
+  my $phenotype_id = 0;
+
+  if ($value_type eq 'literal') {
+print "$descriptor' value type is a literal\n";
+    $phenotype_id = setPhenotypeValueRecord(
+      $dbh, 
+      $uniquename, 
+      $name, 
+      $descriptor_id, 
+      $traitmethod_id, 
+      $traitvalue
+    );
+  }
+  elsif ($value_type eq 'code') {
+print "'$descriptor' value type is a controlled vocabulary\n";
+    $phenotype_id = setPhenotypeCValueRecord(
+      $dbh, 
+      $uniquename, 
+      $name, 
+      $descriptor_id, 
+      $traitmethod_id, 
+      "$descriptor=$traitvalue"
+    );
+  }
+  else {
+    print "Warning: unknown value type: '$value_type'\n";
+  }
+print "Got phenotype id $phenotype_id\n";
+
+  return $phenotype_id;
+}#setPhenotype
+
+
+sub setPhenotypeCValueRecord {
+  my ($dbh, $uniquename, $name, $descriptor_id, $traitmethod_id, $traitvalue) = @_;
+  my ($sql, $row);
+  
+  my $cvterm_id = getCvtermId($dbh, $traitvalue, 'GRIN_descriptor_values');
+  if (!$cvterm_id) {
+    print "ERROR: unable to find descriptor value: $traitvalue\n";
+    exit;
+  }
+  
+  $uniquename = $dbh->quote($uniquename);
+  $name = $dbh->quote($name);
+  $traitvalue = $dbh->quote($traitvalue);
+  
+  my $phenotype_id = 0;
+  $sql = "
+    SELECT phenotype_id FROM phenotype
+    WHERE uniquename=$uniquename";
+  if ($row=doQuery($dbh, $sql, 1)) {
+    $phenotype_id = $row->{'phenotype_id'};
+    $sql = "
+      UPDATE phenotype
+        SET name=$name, 
+            cvalue_id=$cvterm_id,
+            attr_id=$descriptor_id,
+            assay_id=$traitmethod_id
+      WHERE phenotype_id=$phenotype_id";
+    doQuery($dbh, $sql, 0);
+  }
+  else {
+    $sql = "
+      INSERT INTO phenotype
+        (uniquename, name, cvalue_id, attr_id, assay_id)
+      VALUES
+        ($uniquename, $name, $cvterm_id, $descriptor_id, $traitmethod_id)
+      RETURNING phenotype_id";
+    $row = doQuery($dbh, $sql, 1);
+    $phenotype_id = $row->{'phenotype_id'};
+  }
+  
+  return $phenotype_id;
+}#setPhenotypeCValueRecord
+
+
+sub setPhenotypeValueRecord {
+  my ($dbh, $uniquename, $name, $descriptor_id, $traitmethod_id, $traitvalue) = @_;
+  my ($sql, $row);
+  
+  $uniquename = $dbh->quote($uniquename);
+  $name = $dbh->quote($name);
+  $traitvalue = $dbh->quote($traitvalue);
+  
+  my $phenotype_id = 0;
+  $sql = "
+    SELECT phenotype_id FROM phenotype
+    WHERE uniquename=$uniquename";
+  if ($row=doQuery($dbh, $sql, 1)) {
+    $phenotype_id = $row->{'phenotype_id'};
+    $sql = "
+      UPDATE phenotype
+        SET name=$name, 
+            value=$traitvalue,
+            attr_id=$descriptor_id,
+            assay_id=$traitmethod_id
+      WHERE phenotype_id=$phenotype_id";
+    doQuery($dbh, $sql, 0);
+  }
+  else {
+    $sql = "
+      INSERT INTO phenotype
+        (uniquename, name, value, attr_id, assay_id)
+      VALUES
+        ($uniquename, $name, $traitvalue, $descriptor_id, $traitmethod_id)
+      RETURNING phenotype_id";
+    $row = doQuery($dbh, $sql, 1);
+    $phenotype_id = $row->{'phenotype_id'};
+  }
+  
+  return $phenotype_id;
+}#setPhenotypeValueRecord
 
 
 sub setProjectRecord {
