@@ -42,7 +42,7 @@ die $warn if ($#ARGV < 0);
   }
   
   eval {
-#    loadDescriptors();
+    loadDescriptors();
     loadCodes();
     
     # commit if we get this far
@@ -75,6 +75,17 @@ sub loadDescriptors {
   my $cv_id = getCVId($dbh, $cvname, 1);
   if (!$cv_id) {
     print "ERROR: unable to find cv for PeanutBase/LegumeInfo traits.\n";
+    exit;
+  }
+  
+  # make sure relationship terms exist
+  my $method_of_id = createCvterm($dbh, 'method_of', '', 'method_of', 
+                                  'LegumeInfo:traits', 'LegumeInfo:traits');
+  my $scale_of_id  = createCvterm($dbh, 'scale_of', '', 'scale_of', 
+                                  'LegumeInfo:traits', 'LegumeInfo:traits');
+  my $is_a_id      = getCvtermId($dbh, 'is_a', 'relationship');  # this ^should^ exist
+  if (!$method_of_id || !$scale_of_id || !$is_a_id) {
+    print "\nERROR: missing cvterms for one or more of 'method_of', 'scale_of', 'is_a'\n\n";
     exit;
   }
   
@@ -137,7 +148,7 @@ sub loadCodes {
   my $row_count = 0;
   my @rows = @$row_ref;
   for (my $row=0; $row<=$#rows; $row++) {
-print "\n\nRow:\n" . Dumper($rows[$row]);    
+#print "\n\nRow:\n" . Dumper($rows[$row]);    
     $row_count++;
     
     # Get cvterm for scale (method + " - scale")
@@ -147,12 +158,12 @@ print "\n\nRow:\n" . Dumper($rows[$row]);
       print "ERROR: unable to find term '$scale'.\n";
       exit;
     }
-print "Found scale $scale_id\n";    
+#print "Found scale $scale_id\n";    
     
     # Create/update descriptor value code; create unique code name
     my $code = $rows[$row]{'code'} . "|$scale";
     my $code_id = setTerm($dbh, $dbname, $cvname, $code, $rows[$row]{'code_meaning'});
-print "Code id is $code_id\n";    
+#print "Code id for '$code' is $code_id\n";    
 
     # Connect to scale
     setCvtermRelationship($dbh, $code_id, $scale_id, 'is_a', 'relationship');
@@ -177,7 +188,7 @@ sub setTerm {
     $term, 
     $dbname
   );
-print "dbxref_id: $dbxref_id ($term)\n";
+#print "dbxref_id: $dbxref_id ($term)\n";
 
   my $cvterm_id = setCvtermRecord(
     $dbh, 
@@ -186,7 +197,7 @@ print "dbxref_id: $dbxref_id ($term)\n";
     $description,
     $dbname
   );
-print "cvterm id is $cvterm_id ($term)\n";
+#print "cvterm id is $cvterm_id ($term)\n";
 
   return $cvterm_id;
 }#setTerm
