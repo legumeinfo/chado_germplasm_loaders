@@ -238,7 +238,7 @@ print "Header:\n" . Dumper($header_ref);
     );
 
     my $project_id = setProjectRecord($dbh, $rows[$row]{'GRIN_method'}, $rows[$row]{'GRIN_description'});
-    setProjectProp($dbh, $project_id, 'phenotype_study', 'project_type', 'genbank');
+    setProjectProp($dbh, $project_id, 'Trait study', 'project_type', 'genbank');
     if ($dbxref_id) {
       attachProjectDbxref($dbh, $project_id, $dbxref_id);
     }
