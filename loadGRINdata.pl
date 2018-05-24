@@ -1,6 +1,6 @@
 # file: loadGRINdata.pl
 #
-# purpose: load GRIN trait data into chado.
+# purpose: load GRIN evaluation data into chado.
 #
 # history:
 #  09/21/16  eksc  completed for GRIN
@@ -113,6 +113,8 @@ print "Header:\n" . Dumper($header_ref);
       exit;
     }
 
+    # If this record describes collection membership, attach stock to stockcollection.
+    #    Note that GRIN "methods" include collection memberships.
     if ($collections{$rows[$row]{'method_name'}}) {
       # Get/create stockcollection
       my $stockcollection_id = createStockCollection($dbh,
@@ -125,14 +127,17 @@ print "Header:\n" . Dumper($header_ref);
     }
     
     else {
-      # stock - stock_phenotype - phenotype
       # Create a phenotype record for this trait
-      my $phenotype_id = setPhenotype(
+      my $obs = $rows[$row]{'observation_value'};
+      if ($rows[$row]{'observation_value'} =~ /^[0-9,.Ee]+$/) {
+        $obs = '' . $rows[$row]{'observation_value'};
+      }
+      my $phenotype_id = setGRINPhenotype(
         $dbh,
         $accession, 
         $rows[$row]{'descriptor_name'}, 
-        $rows[$row]{'method_name'}, 
-        $rows[$row]{'observation_value'}
+        $obs,
+        $rows[$row]{'method_name'}  # used to create uniquename
       );
  
       if (!$phenotype_id) {
@@ -145,7 +150,7 @@ print "Header:\n" . Dumper($header_ref);
       attachPhenotypeProject($dbh, $phenotype_id, $project_id);
     
       # Attach to stock
-      attachToStock($dbh, $phenotype_id, $stock_id);
+      attachPhenotypeStock($dbh, $phenotype_id, $stock_id);
     }
 #last if ($row > 5);
   }
@@ -157,25 +162,7 @@ print "Header:\n" . Dumper($header_ref);
 ####                         HELPER FUNCTIONS                              ####
 ###############################################################################
 
-sub attachToStock {
-  my ($dbh, $phenotype_id, $stock_id) = @_;
-  my ($sql, $row);
-  
-  $sql = "
-    SELECT stock_phenotype_id FROM stock_phenotype
-    WHERE phenotype_id=$phenotype_id AND stock_id=$stock_id";
-  if (!($row = doQuery($dbh, $sql, 1))) {
-    $sql = "
-      INSERT INTO stock_phenotype
-        (phenotype_id, stock_id)
-      VALUES
-        ($phenotype_id, $stock_id)";
-    doQuery($dbh, $sql, 0);
-  }
-}#attachToStock
-
-
-sub getDescriptorValueType {
+sub getGRINDescriptorValueType {
   my ($dbh, $descriptor) = @_;
   my ($sql, $row);
   
@@ -194,15 +181,15 @@ sub getDescriptorValueType {
   }
   
   return undef;
-}#getDescriptorValueType
+}#getGRINDescriptorValueType
 
 
-sub setPhenotype {
-  my ($dbh, $stockname, $descriptor, $traitmethod, $traitvalue) = @_;
+sub setGRINPhenotype {
+  my ($dbh, $stockname, $descriptor, $traitvalue, $study) = @_;
   my ($sql, $row);
   
   # create a uniquename
-  my $uniquename = "$stockname:$descriptor:$traitmethod:$traitvalue";
+  my $uniquename = "$stockname:$descriptor:$study:$traitvalue";
   
   # name is just the descriptor
   my $name = $descriptor;
@@ -213,34 +200,26 @@ sub setPhenotype {
     exit;
   }
   
-  my $traitmethod_id = getCvtermId($dbh, $traitmethod, 'GRIN_methods');
-  if (!$descriptor_id) {
-    print "ERROR: no term found for GRIN method $traitmethod\n";
-    exit;
-  }
-
-  my $value_type = getDescriptorValueType($dbh, $descriptor);
+  my $value_type = getGRINDescriptorValueType($dbh, $descriptor);
   my $phenotype_id = 0;
 
   if ($value_type eq 'literal') {
 print "$descriptor' value type is a literal\n";
-    $phenotype_id = setPhenotypeValueRecord(
+    $phenotype_id = setGRINPhenotypeValueRecord(
       $dbh, 
       $uniquename, 
       $name, 
       $descriptor_id, 
-      $traitmethod_id, 
       $traitvalue
     );
   }
   elsif ($value_type eq 'code') {
 print "'$descriptor' value type is a controlled vocabulary\n";
-    $phenotype_id = setPhenotypeCValueRecord(
+    $phenotype_id = setGRINPhenotypeCValueRecord(
       $dbh, 
       $uniquename, 
       $name, 
       $descriptor_id, 
-      $traitmethod_id, 
       "$descriptor=$traitvalue"
     );
   }
@@ -250,11 +229,11 @@ print "'$descriptor' value type is a controlled vocabulary\n";
 print "Got phenotype id $phenotype_id\n";
 
   return $phenotype_id;
-}#setPhenotype
+}#setGRINPhenotype
 
 
-sub setPhenotypeCValueRecord {
-  my ($dbh, $uniquename, $name, $descriptor_id, $traitmethod_id, $traitvalue) = @_;
+sub setGRINPhenotypeCValueRecord {
+  my ($dbh, $uniquename, $name, $descriptor_id, $traitvalue) = @_;
   my ($sql, $row);
   
   my $cvterm_id = getCvtermId($dbh, $traitvalue, 'GRIN_descriptor_values');
@@ -278,27 +257,27 @@ sub setPhenotypeCValueRecord {
         SET name=$name, 
             cvalue_id=$cvterm_id,
             attr_id=$descriptor_id,
-            assay_id=$traitmethod_id
+            assay_id=NULL
       WHERE phenotype_id=$phenotype_id";
     doQuery($dbh, $sql, 0);
   }
   else {
     $sql = "
       INSERT INTO phenotype
-        (uniquename, name, cvalue_id, attr_id, assay_id)
+        (uniquename, name, cvalue_id, attr_id)
       VALUES
-        ($uniquename, $name, $cvterm_id, $descriptor_id, $traitmethod_id)
+        ($uniquename, $name, $cvterm_id, $descriptor_id)
       RETURNING phenotype_id";
     $row = doQuery($dbh, $sql, 1);
     $phenotype_id = $row->{'phenotype_id'};
   }
   
   return $phenotype_id;
-}#setPhenotypeCValueRecord
+}#setGRINPhenotypeCValueRecord
 
 
-sub setPhenotypeValueRecord {
-  my ($dbh, $uniquename, $name, $descriptor_id, $traitmethod_id, $traitvalue) = @_;
+sub setGRINPhenotypeValueRecord {
+  my ($dbh, $uniquename, $name, $descriptor_id, $traitvalue) = @_;
   my ($sql, $row);
   
   $uniquename = $dbh->quote($uniquename);
@@ -316,23 +295,23 @@ sub setPhenotypeValueRecord {
         SET name=$name, 
             value=$traitvalue,
             attr_id=$descriptor_id,
-            assay_id=$traitmethod_id
+            assay_id=NULL
       WHERE phenotype_id=$phenotype_id";
     doQuery($dbh, $sql, 0);
   }
   else {
     $sql = "
       INSERT INTO phenotype
-        (uniquename, name, value, attr_id, assay_id)
+        (uniquename, name, value, attr_id)
       VALUES
-        ($uniquename, $name, $traitvalue, $descriptor_id, $traitmethod_id)
+        ($uniquename, $name, $traitvalue, $descriptor_id)
       RETURNING phenotype_id";
     $row = doQuery($dbh, $sql, 1);
     $phenotype_id = $row->{'phenotype_id'};
   }
   
   return $phenotype_id;
-}#setPhenotypeValueRecord
+}#setGRINPhenotypeValueRecord
 
 
 
