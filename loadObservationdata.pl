@@ -332,7 +332,7 @@ print "Create phenotype record for study=[$study], stock=[$stockname], trait=[$t
 #print "Value type is [$value_type]\n";
 
   # create a uniquename
-  my $uniquename = "$study:stockname:$trait:$method:$traitvalue:$traitcode";
+  my $uniquename = "$study:$stockname:$trait:$method:$traitvalue:$traitcode";
   
   my $phenotype_id;
 
