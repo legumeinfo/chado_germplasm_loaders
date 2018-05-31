@@ -79,26 +79,26 @@ sub loadDescriptors {
   }
   
   # make sure relationship terms exist
-  my $method_of_id = createCvterm($dbh, 'method_of', '', 'method_of', 
-                                  'LegumeInfo:traits', 'LegumeInfo:traits');
-  my $scale_of_id  = createCvterm($dbh, 'scale_of', '', 'scale_of', 
-                                  'LegumeInfo:traits', 'LegumeInfo:traits');
-  my $is_a_id      = getCvtermId($dbh, 'is_a', 'relationship');  # this ^should^ exist
-  if (!$method_of_id || !$scale_of_id || !$is_a_id) {
-    print "\nERROR: missing cvterms for one or more of 'method_of', 'scale_of', 'is_a'\n\n";
+  my $method_of_id  = createCvterm($dbh, 'method_of', '', 'method_of', 
+                                   'LegumeInfo:traits', 'LegumeInfo:traits');
+  my $scale_of_id   = createCvterm($dbh, 'scale_of', '', 'scale_of', 
+                                   'LegumeInfo:traits', 'LegumeInfo:traits');
+  my $value_type_id = createCvterm($dbh, 'value_type', '', 'value_type', 
+                                   'LegumeInfo:traits', 'LegumeInfo:traits');  
+  my $is_a_id       = getCvtermId($dbh, 'is_a', 'relationship');  # this ^should^ exist
+  if (!$method_of_id || !$scale_of_id || !$value_type_id || !$is_a_id) {
+    print "\nERROR: missing cvterms for one or more of 'method_of', 'scale_of', 'is_a', 'value_type'\n\n";
     exit;
   }
   
   # trait_term, trait_description, trait_xref, method_name, method_description, 
-  # value_type, method_xref, Image ID, Reference
+  # scale_name, scale_xref, value_type, method_xref, Image ID, Reference
   my ($header_ref, $row_ref) = readWorksheet($oBook, 'Traits', $dbh);
-#print "Header:\n" . Dumper($header_ref);
 
   my $row_count = 0;
   my @rows = @$row_ref;
   for (my $row=0; $row<=$#rows; $row++) {
     $row_count++;
-#print "Row:\n" . Dumper($rows[$row]);
     
     # Set/find the trait name
     my $trait_id = setTerm($dbh, $dbname, $cvname, 
@@ -110,8 +110,10 @@ sub loadDescriptors {
     # Attach method to trait
     setCvtermRelationship($dbh, $method_id, $trait_id, 'method_of', $cvname);
     
-    # Invent a scale from the method name
-    my $scale = $rows[$row]{'method_name'} . " - scale";
+    # If no scale name given, invent one from the method name
+    my $scale = ($rows[$row]{'scale_name'})
+                ? $rows[$row]{'scale_name'}
+                : $rows[$row]{'method_name'} . " - scale";
     my $scale_id = setTerm($dbh, $dbname, $cvname, $scale, '');
 
     # Attach scale to method
@@ -141,29 +143,25 @@ sub loadCodes {
     exit;
   }
   
-  # trait_term, method_name, code, code_meaning, Image ID
+  # trait_term, method_name, scale_name, code, code_meaning, Image ID
   my ($header_ref, $row_ref) = readWorksheet($oBook, 'Trait Value Codes', $dbh);
-#print "Header:\n" . Dumper($header_ref);
 
   my $row_count = 0;
   my @rows = @$row_ref;
   for (my $row=0; $row<=$#rows; $row++) {
-#print "\n\nRow:\n" . Dumper($rows[$row]);    
     $row_count++;
     
-    # Get cvterm for scale (method + " - scale")
-    my $scale = $rows[$row]{'method_name'} . ' - scale';
+    # Get cvterm for scale 
+    my $scale = $rows[$row]{'scale_name'};
     my $scale_id = getCvtermId($dbh, $scale, $cvname);
     if (!$scale_id) {
-      print "ERROR: unable to find term '$scale'.\n";
+      print "ERROR: unable to find scale term '$scale'.\n";
       exit;
     }
-#print "Found scale $scale_id\n";    
     
     # Create/update descriptor value code; create unique code name
     my $code = $rows[$row]{'code'} . "|$scale";
     my $code_id = setTerm($dbh, $dbname, $cvname, $code, $rows[$row]{'code_meaning'});
-#print "Code id for '$code' is $code_id\n";    
 
     # Connect to scale
     setCvtermRelationship($dbh, $code_id, $scale_id, 'is_a', 'relationship');
