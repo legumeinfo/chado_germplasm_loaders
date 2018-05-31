@@ -26,7 +26,6 @@ our @EXPORT      = (
                     qw(getStockId),
                     qw(makeDescriptorKey),
                     qw(makeOrdinalValue),
-                    qw(makeScaleName),
                     qw(openExcelFile),
                     qw(readHeaders),
                     qw(readRow),
@@ -367,17 +366,6 @@ sub makeOrdinalValue {
   my ($value, $scale) = @_;
   return "$value|$scale";
 }#makeOrdinalValue
-
-
-sub makeScaleName {
-  my ($method) = @_;
-  
-  if ($method) {
-    return "$method - scale";
-  }
-  
-  return undef;
-}#makeScaleName
 
 
 sub openExcelFile {
