@@ -101,6 +101,8 @@ print "Header:\n" . Dumper($header_ref);
   my $row_count = 0;
   my @rows = @$row_ref;
 
+  my $stockcollection_type_id = getCvtermId($dbh, 'stock_collection', 'stock_property');
+
   for (my $row=0; $row<=$#rows; $row++) {
     $row_count++;
 #print "row: $row_count\n" . Dumper($rows[$row]);
@@ -120,7 +122,7 @@ print "Header:\n" . Dumper($header_ref);
       my $stockcollection_id = createStockCollection($dbh,
                                                      $rows[$row]{'method_name'}, 
                                                      'GRIN', 
-                                                     $stock_collection_id);
+                                                     $stockcollection_type_id);
       
       # Attach to stock
       attachStockCollection($dbh, $stock_id, $stockcollection_id);
