@@ -64,18 +64,18 @@ die $warn if ($#ARGV < 0);
 sub loadStudies {
   my ($header_ref, $row_ref) = readWorksheet($oBook, 'Study', $dbh);
 #print "Header:\n" . Dumper($header_ref);
-print "Rows:\n" . Dumper($row_ref);
+#print "Rows:\n" . Dumper($row_ref);
   
   my $row_count = 0;
   my @rows = @$row_ref;
   for (my $row=0; $row<=$#rows; $row++) {
-print "Got row\n" . Dumper($row);
-    my $project_id = setProjectRecord($dbh, $rows[$row]{'study_name'}, $rows[$row]{'study_description'});
+#print "Got row\n" . Dumper($row);
+    my $description = $rows[$row]{'study_description'};
+    if ($rows[$row]{'study_publication'}) {
+      $description .= ' ' . $rows[$row]{'study_publication'};
+    }
+    my $project_id = setProjectRecord($dbh, $rows[$row]{'study_name'}, $description);
     setProjectProp($dbh, $project_id, 'Trait study', 'project_type', 'genbank');
-#TODO: ATTACH PUBLICATION
-#    if ($rows[$row]{'study_publication'}) {
-#      attachProjectPub($dbh, $project_id, $rows[$row]{'study_publication'});
-#    }
   }#each study row
 }#loadStudies
 
