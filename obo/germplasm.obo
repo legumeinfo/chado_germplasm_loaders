@@ -24,7 +24,7 @@ def: "Class of stock, for example, 'Spanish' for peanut, 'Pinto' for bean."
 [Term]
 id: GPlasm:0000005
 name: cultivar
-def: "Stock of type cultivar (produced by selective breeding)"
+def: "Cultivar, or common name of a stock. Also, a stock of type cultivar (produced by selective breeding)"
 
 [Term]
 id: GPlasm:0000006
