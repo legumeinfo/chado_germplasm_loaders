@@ -5,14 +5,16 @@
 #
 # history:
 #  06/14/16  eksc  created
+#  05/15/19  eksc  revised for new template
 
 use strict;
 use DBI;
 use Spreadsheet::ParseExcel;
 use Encode;
 use File::Basename;
-
+use POSIX qw(strftime);
 use Carp;
+
 use Data::Dumper;
 
 # load local lib library
@@ -29,8 +31,13 @@ EOS
 ;
 die $warn if ($#ARGV < 0);
 
-
   my $excelfile = $ARGV[0];
+  
+  # Get today's date
+  my $tm = localtime;
+  
+  print 'Date: ' . (strftime "%m/%d/%Y", localtime) . "\n";
+  print "Load germplasm data from $excelfile\n\n";
 
   # open input excel file
   my $oBook = openExcelFile($excelfile);
@@ -41,10 +48,9 @@ die $warn if ($#ARGV < 0);
     print "\nUnable to connect to database.\n\n";
     exit;
   }
-print "\nThis script needs to be tested before use.\n\n";
-exit;
 
   # get/create cvterm for 'germplasm'
+=cut unnecessary?
   my $dbxref_id = setDbxrefRecord(
     $dbh, 
     'germplasm', 
@@ -57,11 +63,12 @@ exit;
     '',
     'stock_type'
   );
+=cut
   
   eval {
     loadGermplasm();
-    loadImages();
-    loadTraits();
+#    loadImages();
+#    loadTraits();
     
     # commit if we get this far
     $dbh->commit;
@@ -105,9 +112,9 @@ sub loadGermplasm {
       setStockProp($dbh, $rows[$row]{'grin_accession'}, $stock_id, 'grin_accession', 1, 'germplasm');
     }
     
-    # origin
-    if ($rows[$row]{'origin'}) {
-      setStockProp($dbh, $rows[$row]{'origin'}, $stock_id, 'origin', 1, 'germplasm');
+    # alias
+    if ($rows[$row]{'alias'}) {
+      loadSynonyms($dbh, $rows[$row]{'alias'}, $rows[$row]{'id'}, $stock_id);
     }
     
     # crop/market type
@@ -115,15 +122,30 @@ sub loadGermplasm {
       setStockProp($dbh, $rows[$row]{'crop'}, $stock_id, 'crop', 1, 'germplasm');
     }
 
-    # alias
-    if ($rows[$row]{'alias'}) {
-      loadSynonyms($dbh, $rows[$row]{'alias'}, $rows[$row]{'id'}, $stock_id);
+    # cultivar
+    if ($rows[$row]{'cultivar'}) {
+      setStockProp($dbh, $rows[$row]{'cultivar'}, $stock_id, 'cultivar', 1, 'germplasm');
+    }
+
+    # germplasm_center
+    if ($rows[$row]{'germplasm_center'}) {
+      setStockProp($dbh, $rows[$row]{'germplasm_center'}, $stock_id, 'germplasm_center', 1, 'germplasm');
+    }
+    
+    # pedigree
+    if ($rows[$row]{'pedigree'}) {
+      setStockProp($dbh, $rows[$row]{'pedigree'}, $stock_id, 'pedigree', 1, 'germplasm');
+    }
+    
+    # origin
+    if ($rows[$row]{'origin'}) {
+      setStockProp($dbh, $rows[$row]{'origin'}, $stock_id, 'origin', 1, 'germplasm');
     }
     
 # TODO:
-#	cultivar, germplasm_center, contact	maternal parent	paternal parent	selfing_parent	mutation_parent	pedigree	population_size	comments
+#	contact	maternal parent	paternal parent	selfing_parent	mutation_parent	population_size	comments
 
-#last if ($row_count > 2000);
+#last if ($row_count > 1);
   }#each row
   
   print "  loaded $row_count rows.\n";
@@ -229,7 +251,7 @@ sub loadTraits {
   }#each row
   
   print "  loaded $row_count rows.\n";
-}#loadGermplasm
+}#loadTraits
 
 
 ###############################################################################
@@ -326,6 +348,7 @@ sub setStockRecord {
     print "WARNING: no organism record for " . $data_row{'genus'} . ' ' . $data_row{'species'} . "\n";
     return;
   }
+print "organism id for " . $data_row{'genus'}, $data_row{'species'} . ": $organism_id\n";
 
   # Get germplasm type id
   my $germplasm_type = $data_row{'germplasm_type'};
@@ -335,7 +358,7 @@ sub setStockRecord {
     print "WARNING: no stock-type '$germplasm_type'\n";
     return;
   }
-  
+print "cvterm id for $germplasm_type: $type_id\n";
   
   # Get/create dbxref for GRIN identifier
   my $dbxref_id = setDbxrefRecord($dbh, $data_row{'GRIN_ID'}, 'GRIN');
@@ -343,6 +366,7 @@ sub setStockRecord {
   if (!$dbxref_id) {
     $dbxref_id = 'NULL';
   }
+print "dbxref rec for " .  $data_row{'GRIN_ID'} . ": $dbxref_id\n";
   
   my $uniquename = $dbh->quote($data_row{'ID'});
   my $name = $dbh->quote($data_row{'2nd_ID'});
