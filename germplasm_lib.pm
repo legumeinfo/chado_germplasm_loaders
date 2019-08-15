@@ -21,7 +21,6 @@ our @EXPORT      = (
                     qw(getDBId),
                     qw(getDbxrefId),
                     qw(getDescriptorValueType),
-                    qw(getCvtermId),
                     qw(getProjectID),
                     qw(getStockId),
                     qw(makeDescriptorKey),
@@ -168,7 +167,7 @@ sub createStockCollection {
 
 sub doQuery {
   my ($dbh, $sql, $return_row) = @_;
-  print "$sql\n";
+#print "$sql\n";
   my $sth = $dbh->prepare($sql);
   $sth->execute();
   if ($return_row) {
@@ -416,7 +415,7 @@ sub readRow {
   my %data_row;
   my $nonblank;
 
-  if (!$sheet->{Cells}[$row][0] || $sheet->{Cells}[$row][0]->Value() =~ /^#/) {
+  if (!$sheet->{Cells}[$row][0] || ($sheet->{Cells}[$row][0]->Value() =~ /^\#/)) {
     # Skip this row
     return undef;
   }
@@ -437,6 +436,7 @@ sub readRow {
     }
   }#each column
 
+  $data_row{'row_num'} = $row;
   return \%data_row;
 }#readRow
 
@@ -691,7 +691,6 @@ sub setPhenotype {
   my $phenotype_id = 0;
 
   if ($value_type eq 'literal') {
-print "$descriptor' value type is a literal\n";
     $phenotype_id = setPhenotypeValueRecord(
       $dbh, 
       $uniquename, 
@@ -702,7 +701,6 @@ print "$descriptor' value type is a literal\n";
     );
   }
   elsif ($value_type eq 'code') {
-print "'$descriptor' value type is a controlled vocabulary\n";
     $phenotype_id = setPhenotypeCValueRecord(
       $dbh, 
       $uniquename, 
@@ -715,7 +713,6 @@ print "'$descriptor' value type is a controlled vocabulary\n";
   else {
     print "Warning: unknown value type: '$value_type'\n";
   }
-print "Got phenotype id $phenotype_id\n";
 
   return $phenotype_id;
 }#setPhenotype
