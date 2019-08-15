@@ -72,7 +72,7 @@ sub loadStudies {
 #print "Got row\n" . Dumper($row);
     my $description = $rows[$row]{'study_description'};
     if ($rows[$row]{'study_publication'}) {
-      $description .= ' ' . $rows[$row]{'study_publication'};
+      $description .= ' REFERENCE: ' . $rows[$row]{'study_publication'};
     }
     my $project_id = setProjectRecord($dbh, $rows[$row]{'study_name'}, $description);
     setProjectProp($dbh, $project_id, 'Trait study', 'project_type', 'genbank');
