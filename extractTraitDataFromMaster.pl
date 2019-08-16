@@ -8,7 +8,9 @@
 #          Correlate PeanutBase trait names to TO and CO_337 terms.
 #          Correlate GRIN descriptors to CO_337 variables.
 #
-# inputs: CO submission spread sheet - includes all existing CO_337 terms and 
+# inputs: Excel spread sheets in .xls format
+#
+#         CO submission spread sheet - includes all existing CO_337 terms and 
 #                                      new requested terms; is interpreted as 
 #                                      the official source of terms and term data.
 #         PeanutBase master trait spread sheet
@@ -115,7 +117,7 @@ die $warn if ($#ARGV < 1);
     # Retrieve trait data and ontology associations from master trait worksheet.
     # Get and load PB terms.
     readMasterTraitData($trait_excelfile);
-    
+
     # Read CO submission spread sheet, which includes accessioned terms.
     #   Look for inconsistencies between the contents and data collected
     #   for the CO and PB ontologies.
@@ -157,7 +159,7 @@ die $warn if ($#ARGV < 1);
 sub associateGRINdescriptors {
   my $dbh = $_[0];
 
-  print "\nAssociate GRIN descrptors with CO_337 and PB terms? (y/n) ";
+  print "\nAssociate GRIN descriptors with CO_337 and PB terms? (y/n) ";
   my $resp = <STDIN>;
   chomp $resp;
   if ($resp ne 'y') {
@@ -169,17 +171,20 @@ sub associateGRINdescriptors {
     my @parts = split /\|/, $GRIN_descriptors{$d};
     my $counterpart_found = 0;
     
+    my $GRIN_descriptor_id = getCvtermId($dbh, $d, 'GRIN_descriptors');
+    if (!$GRIN_descriptor_id) {
+        print "ERROR: unable to get cvterm ids for GRIN descriptor [$d]\n";
+    }
+    
     if ($CO_terms{$parts[0]}) {
       # GRIN descriptor has a CO_337 counterpart: 
       #    associate via is_a from relationship ontology
       $counterpart_found = 1;
-      if ((my $GRIN_descriptor_id = getCvtermId($dbh, $d, 'GRIN_descriptors'))
-          && (my $CO_trait_id = getCvtermId($dbh, $parts[0], 'GroundnutTrait'))) {
+      if ((my $CO_trait_id = getCvtermId($dbh, $parts[0], 'GroundnutTrait'))) {
         setCvtermRelationship($dbh, $GRIN_descriptor_id, $CO_trait_id, 'is_a', 'relationship');
       }
       else {
-        print "ERROR: unable to get cvterm ids for GRIN descriptor ";
-        print "[$d] and/or CO_337 trait [$parts[0]]\n";
+        print "ERROR: unable to get cvterm id for CO_337 trait [$parts[0]]\n";
       }
     }
     
@@ -187,13 +192,11 @@ sub associateGRINdescriptors {
       # GRIN descriptor has a PB counterpart: 
       #    associate via is_a from relationship ontology
       $counterpart_found = 1;
-      if ((my $GRIN_descriptor_id = getCvtermId($dbh, $d, 'GRIN_descriptors'))
-            && (my $PB_trait_id = $PB_terms{$parts[0]}->{'cvterm_id'})) {
+      if ((my $PB_trait_id = $PB_terms{$parts[0]}->{'cvterm_id'})) {
         setCvtermRelationship($dbh, $GRIN_descriptor_id, $PB_trait_id, 'is_a', 'relationship');
       }
       else {
-        print "ERROR: unable to get cvterm ids for GRIN descriptor ";
-        print "[$d] and/or PB trait [$parts[0]]\n";
+        print "ERROR: unable to get cvterm id for PB trait [$parts[0]]\n";
       }
     }
     
@@ -811,7 +814,7 @@ sub fillMethodRow {
     foreach my $f (@method_fields) {
       if ($in_row->{$f}) {
         if ($method_vals{$f} && $method_vals{$f} ne $in_row->{$f}) {
-          print "ERROR: values for '$f' don't match for '$trait_name', method ";
+          print "WARNING: values for '$f' don't match for '$trait_name', method ";
           print "'$method_name', in row $row_num\n";
         }
         else {
@@ -837,7 +840,7 @@ sub fillTraitRow {
   foreach my $f (@trait_fields) {
     if ($in_row->{$f}) {
       if ($trait_vals{$f} && $trait_vals{$f} ne $in_row->{$f}) {
-        print "ERROR: values for '$f' don't match for '$trait_name' in row ";
+        print "WARNING: values for '$f' don't match for '$trait_name' in row ";
         print "$row_num: [" . $trait_vals{$f} . "] vs [" . $in_row->{$f} . "]\n";
       }
       else {
@@ -873,7 +876,7 @@ sub fillScaleRow {
     foreach my $f (@scale_fields) {
       if ($in_row->{$f}) {
         if ($scale_values{$f} && $scale_values{$f} ne $in_row->{$f}) {
-          print "ERROR: values for '$f' don't match for '$trait_name', method ";
+          print "WARNING: values for '$f' don't match for '$trait_name', method ";
           print "'$method_name', scale '$scale_name' in row $row_num\n";
         }
         else {
